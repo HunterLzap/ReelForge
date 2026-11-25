@@ -31,8 +31,8 @@ export interface Source {
   credibility_note: string;
 }
 export interface Detail extends Project {
-  research: { outline: string[] } | null;
-  fact_check: { approved: boolean; summary: string; issues: string[] } | null;
+  research: { outline: string[]; key_facts?:{claim:string;source_ids:string[]}[]; data_points?:{claim:string;source_ids:string[]}[] } | null;
+  fact_check: { approved: boolean; summary: string; issues: string[]; checks?:{claim:string;source:string;verdict:string}[]; follow_up_queries?:string[] } | null;
   scenes: Scene[];
   sources: Source[];
   logs: {

@@ -12,12 +12,23 @@ app = typer.Typer()
 
 @app.command()
 def demo(
-    topic: str = typer.Option(...), target_format: FormatType = FormatType.landscape
+    topic: str = typer.Option(...),
+    target_format: FormatType = FormatType.landscape,
+    theme: str = "editorial_dark",
+    brand_label: str = "",
+    transition: str = "fade",
 ):
     async def execute():
         await init()
         p = await repo.create(
-            ProjectCreate(topic=topic, target_format=target_format, auto_approve=True)
+            ProjectCreate(
+                topic=topic,
+                target_format=target_format,
+                theme=theme,
+                brand_label=brand_label,
+                transition=transition,
+                auto_approve=True,
+            )
         )
         await run(p["id"])
         typer.echo(

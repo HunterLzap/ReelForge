@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{{ p.heading }}</h2>
+<div class="checks">
+{% for item in p['items'] %}
+  <section class="tile check"><b class="{{item.status}}">{{ '✓' if item.status=='do' else '×' }}</b>
+    <div><h3>{{ item.title }}</h3><p>{{ item.detail }}</p></div>
+  </section>
+{% endfor %}
+</div>
+{% endblock %}

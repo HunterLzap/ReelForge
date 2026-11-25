@@ -9,6 +9,7 @@ export default function CreateProjectModal({
   create: (data: unknown) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [theme, selectTheme] = useState("editorial_dark");
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -53,10 +54,30 @@ export default function CreateProjectModal({
         </label>
         <label>
           视觉主题
-          <select name="theme">
-            <option value="editorial_dark">编辑部深青</option>
-            <option value="clean_light">清透浅色</option>
-            <option value="warm_amber">暖调琥珀</option>
+          <select
+            name="theme"
+            value={theme}
+            onChange={(e) => selectTheme(e.target.value)}
+          >
+            <option value="editorial_dark">黑金杂志</option>
+            <option value="clean_light">瑞士暖白</option>
+            <option value="warm_amber">复古暖棕</option>
+          </select>
+        </label>
+        <div className={"theme-sample " + theme}>
+          <i />
+          <i />
+          <i />
+        </div>
+        <label>
+          频道署名
+          <input name="brand_label" maxLength={32} placeholder="留空隐藏" />
+        </label>
+        <label>
+          幕间转场
+          <select name="transition">
+            <option value="fade">叠化</option>
+            <option value="slideleft">向左轻推</option>
           </select>
         </label>
         <label>

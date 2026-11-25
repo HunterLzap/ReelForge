@@ -2,7 +2,20 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+Text = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)
+]
+
+
+Heading = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=36)
+]
+Label = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=24)
+]
+Badge = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=16)
+]
 
 
 class Payload(BaseModel):
@@ -10,61 +23,63 @@ class Payload(BaseModel):
 
 
 class Cover(Payload):
-    title: Text
+    title: Heading
     subtitle: Text
-    tag: Text
+    tag: Badge
 
 
 class Quote(Payload):
     quote: Text
-    highlight: Text
-    attribution: Text
+    highlight: Label
+    attribution: Label
 
 
 class ListPoint(Payload):
-    label: Text
+    label: Label
     desc: Text
 
 
 class Bullet(Payload):
-    heading: Text
+    heading: Heading
     items: list[ListPoint] = Field(min_length=3, max_length=4)
 
 
 class Bar(Payload):
-    label: Text
+    label: Label
     value: float = Field(allow_inf_nan=False)
     accent: str = Field(pattern="^#[0-9a-fA-F]{6}$")
 
 
 class Chart(Payload):
-    heading: Text
-    unit: Text
+    heading: Heading
+    unit: Badge
     bars: list[Bar] = Field(min_length=3, max_length=5)
     takeaway: Text
 
 
 class Compare(Payload):
-    heading: Text
-    left_title: Text
-    left_points: list[Text] = Field(min_length=1)
-    right_title: Text
-    right_points: list[Text] = Field(min_length=1)
+    heading: Heading
+    left_title: Label
+    left_points: list[Text] = Field(min_length=1, max_length=4)
+    right_title: Label
+    right_points: list[Text] = Field(min_length=1, max_length=4)
 
 
 class Step(Payload):
-    step_label: Text
-    title: Text
+    step_label: Badge
+    title: Heading
     desc: Text
 
 
 class Timeline(Payload):
-    heading: Text
+    heading: Heading
     steps: list[Step] = Field(min_length=3, max_length=4)
 
 
 class SceneBase(Payload):
-    narration: Text
+    narration: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=460)
+    ]
     source_ids: list[str]
 
 
@@ -98,8 +113,44 @@ class TimelineScene(SceneBase):
     visual_payload: Timeline
 
 
+class Hero(Payload):
+    metric: Badge
+    unit: Badge
+    label: Label
+    context: Text
+    delta: Text
+
+
+class Check(Payload):
+    status: Literal["do", "dont"]
+    title: Heading
+    detail: Text
+
+
+class Checklist(Payload):
+    heading: Heading
+    items: list[Check] = Field(min_length=2, max_length=4)
+
+
+class HeroScene(SceneBase):
+    template_type: Literal["hero_stat"]
+    visual_payload: Hero
+
+
+class ChecklistScene(SceneBase):
+    template_type: Literal["checklist"]
+    visual_payload: Checklist
+
+
 SceneItem = Annotated[
-    CoverScene | QuoteScene | BulletScene | ChartScene | CompareScene | TimelineScene,
+    CoverScene
+    | QuoteScene
+    | BulletScene
+    | ChartScene
+    | CompareScene
+    | TimelineScene
+    | HeroScene
+    | ChecklistScene,
     Field(discriminator="template_type"),
 ]
 

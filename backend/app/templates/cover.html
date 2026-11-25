@@ -1,1 +1,20 @@
-{% extends 'base.html' %}{% block content %}<em>{{p.tag}}</em><h1>{{p.title}}</h1><aside>{{p.subtitle}}</aside>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="front">
+  <div class="front-copy">
+    <span class="label">{{ p.tag }}</span>
+    <h1>{{ p.title }}</h1>
+    <p>{{ p.subtitle }}</p>
+  </div>
+  <svg class="engraving" viewBox="0 0 400 460" aria-hidden="true">
+    <defs><pattern id="lines" patternUnits="userSpaceOnUse" width="10" height="10"><path d="M0 10L10 0" stroke="currentColor" stroke-width="2"/></pattern></defs>
+    <path d="M45 405V180A155 155 0 0 1 355 180V405Z" fill="url(#lines)" stroke="currentColor" stroke-width="3"/>
+    {% for n in range(9) %}
+    <path d="M{{65+8*n}} 395V185a{{135-8*n}} {{135-8*n}} 0 0 1 {{270-16*n}} 0v210" fill="none" stroke="currentColor" stroke-width="2"/>
+    {% endfor %}
+    <circle cx="220" cy="167" r="43" fill="var(--paper)" stroke="currentColor" stroke-width="4"/>
+    <path d="M220 210v92h-30v-20h-17v-20h26v-52" fill="var(--paper)" stroke="currentColor" stroke-width="4"/>
+    <path d="M30 416h340m-310 12h280" stroke="currentColor" stroke-width="2"/>
+  </svg>
+</div>
+{% endblock %}

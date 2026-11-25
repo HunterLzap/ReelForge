@@ -1,1 +1,12 @@
-{% extends 'base.html' %}{% block content %}<h2>{{p.heading}}</h2><div class="cols">{% for title,points in [(p.left_title,p.left_points),(p.right_title,p.right_points)] %}<section><em>{{title}}</em>{% for x in points %}<p>{{x}}</p>{% endfor %}</section>{% endfor %}</div>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<h2>{{ p.heading }}</h2>
+<div class="compare">
+{% for title,points in [(p.left_title,p.left_points),(p.right_title,p.right_points)] %}
+  <section class="tile"><small>{{ "A" if loop.first else "B" }}</small><h3>{{ title }}</h3>
+    {% for point in points %}<p>· {{ point }}</p>{% endfor %}
+  </section>
+{% endfor %}
+  <b class="vs">VS</b>
+</div>
+{% endblock %}

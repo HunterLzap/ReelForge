@@ -6,7 +6,7 @@ import CreateProjectModal from "./components/CreateProjectModal";
 import PipelineGraph from "./components/PipelineGraph";
 import OutlineApproval from "./components/OutlineApproval";
 import StoryboardEditor from "./components/StoryboardEditor";
-import PreviewStudio from "./components/PreviewStudio";
+
 import SourceDrawer from "./components/SourceDrawer";
 export default function App() {
   const [list, setList] = useState<Project[]>([]),
@@ -37,7 +37,10 @@ export default function App() {
     request<Project[]>("")
       .then((data) => {
         setList(data);
-        if (data.length && !selection.current) choose(data[0].id);
+        if (data.length && !selection.current) {
+          const wanted = new URLSearchParams(location.search).get("project");
+          choose(data.find((x) => x.id === wanted)?.id || data[0].id);
+        }
       })
       .catch((e) => fail(e.message));
   }, []);
@@ -101,6 +104,7 @@ export default function App() {
             <Plus size={16} />
             新建项目
           </button>
+          {p && <PipelineGraph p={p} />}
           {list.map((x) => (
             <button
               className={"project " + (x.id === id ? "selected" : "")}
@@ -140,12 +144,8 @@ export default function App() {
                   {p.status === "FAILED" ? "重试" : "启动"}
                 </button>
               )}
-              <PipelineGraph p={p} />
-              <PreviewStudio p={p} />
-              <div className="columns">
-                <OutlineApproval {...{ p, act }} />
-                <StoryboardEditor {...{ p, act }} />
-              </div>
+              <StoryboardEditor {...{ p, act }} />
+              <OutlineApproval {...{ p, act }} />
               <footer>
                 文本用量 {p.total_tokens} tokens　·　预估 ¥
                 {p.estimated_cost_cny.toFixed(4)}

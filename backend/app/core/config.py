@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ROOT / ".env", extra="ignore")
+    tavily_api_key: str = ""
     llm_api_key: str = ""
     llm_base_url: str = "https://api.deepseek.com/v1"
     llm_model: str = "deepseek-chat"

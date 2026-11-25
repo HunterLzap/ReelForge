@@ -13,4 +13,4 @@ include=["app*"]
 namespaces=true
 
 [tool.setuptools.package-data]
-app=["templates/*.html"]
+app=["templates/*.html","templates/*.css"]

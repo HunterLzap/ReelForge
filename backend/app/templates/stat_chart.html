@@ -1,1 +1,19 @@
-{% extends 'base.html' %}{% block content %}<h2>{{p.heading}}</h2>{% set scale=([p.bars|map(attribute='value')|map('abs')|max,1]|max) %}{% for b in p.bars %}<section>{{b.label}}　<svg viewBox="0 0 100 10" preserveAspectRatio="none"><rect width="{{100*b.value|abs/scale}}" height="10" fill="{{b.accent}}"/></svg>　{{b.value}} {{p.unit}}</section>{% endfor %}<aside>{{p.takeaway}}</aside>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<h2>{{ p.heading }}</h2>
+<small>单位 · {{ p.unit }}</small>
+<div class="plot">
+{% for bar in chart %}
+  <div class="bar-row">
+    <b>{{ bar.label }}</b>
+    <svg viewBox="0 0 100 10" preserveAspectRatio="none">
+      {% for x in [0,25,50,75,100] %}<line x1="{{x}}" x2="{{x}}" y1="0" y2="10" stroke="var(--rule)" stroke-width=".5"/>{% endfor %}
+      <rect x="{{bar.x}}" y="2" width="{{bar.width}}" height="6" rx=".8" fill="{{bar.color}}"/>
+    </svg>
+    <strong>{{ "%g"|format(bar.value) }}</strong>
+  </div>
+{% endfor %}
+  <div class="bar-row"><span></span><div class="axis">{% for tick in ticks %}<span>{{ "%g"|format(tick) }}</span>{% endfor %}</div></div>
+</div>
+<div class="stripe">{{ p.takeaway }}</div>
+{% endblock %}

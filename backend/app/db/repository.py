@@ -23,13 +23,15 @@ async def execute(sql, *params):
 async def create(data):
     pid = uuid4().hex
     await execute(
-        "INSERT INTO projects(id,topic,target_format,theme,voice,auto_approve) VALUES(?,?,?,?,?,?)",
+        "INSERT INTO projects(id,topic,target_format,theme,voice,auto_approve,brand_label,transition) VALUES(?,?,?,?,?,?,?,?)",
         pid,
         data.topic,
         data.target_format,
         data.theme,
         data.voice or settings().default_tts_voice,
         data.auto_approve,
+        data.brand_label,
+        data.transition,
     )
     return await project(pid)
 
@@ -116,7 +118,8 @@ async def edit_scene(pid, sid, scene):
 async def invalidate(pid, sid):
     await execute(
         "UPDATE scenes SET content_hash=NULL,render_status='DIRTY' WHERE project_id=? AND id=?",
-        pid, sid,
+        pid,
+        sid,
     )
 
 
@@ -173,3 +176,26 @@ async def logs(pid, after=0):
 
 async def runs(pid):
     return await rows("SELECT * FROM stage_runs WHERE project_id=? ORDER BY id", pid)
+
+
+async def arrange(pid, ids, *, add=None, remove=None):
+    async with connection() as c:
+        await c.execute("BEGIN IMMEDIATE")
+        if remove:
+            await c.execute(
+                "DELETE FROM scenes WHERE project_id=? AND id=?", (pid, remove)
+            )
+        if add:
+            sid, scene = add
+            await c.execute(
+                "INSERT INTO scenes(id,project_id,order_index,template_type,narration,visual_payload_json,source_ids_json) VALUES(?,?,0,?,?,?,?)",
+                (sid, pid, *values(scene)),
+            )
+        await c.execute(
+            "UPDATE scenes SET order_index=-order_index WHERE project_id=?", (pid,)
+        )
+        for index, sid in enumerate(ids, 1):
+            await c.execute(
+                "UPDATE scenes SET render_status=CASE WHEN order_index!=? OR ? THEN 'DIRTY' ELSE render_status END, order_index=? WHERE project_id=? AND id=?",
+                (-index, bool(add or remove), index, pid, sid),
+            )

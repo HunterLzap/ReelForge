@@ -44,3 +44,10 @@ async def init():
     async with connection() as conn:
         await conn.execute("PRAGMA journal_mode=WAL")
         await conn.executescript(SCHEMA)
+        await conn.execute("BEGIN IMMEDIATE")
+        for name, default in (("brand_label", ""), ("transition", "fade")):
+            columns = await conn.execute_fetchall("PRAGMA table_info(projects)")
+            if name not in {col["name"] for col in columns}:
+                await conn.execute(
+                    f"ALTER TABLE projects ADD COLUMN {name} TEXT NOT NULL DEFAULT '{default}'"
+                )

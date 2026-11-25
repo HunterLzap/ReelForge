@@ -41,6 +41,48 @@ async def test_api_approvals_edit_and_export():
         await step("run", "WAITING_OUTLINE")
         data = await step("approve", "WAITING_STORYBOARD")
         scene_path = path + "/scenes/" + data["scenes"][0]["id"]
+
+        ids = [s["id"] for s in data["scenes"]]
+        payload = {
+            k: data["scenes"][1][k]
+            for k in ("template_type", "narration", "visual_payload", "source_ids")
+        }
+        added = await client.post(path + "/scenes", json=payload)
+        assert added.status_code == 201
+        new = added.json()["id"]
+        order = [ids[0], new, *ids[1:]]
+        assert (
+            await client.put(path + "/scenes/reorder", json={"scene_ids": order})
+        ).status_code == 200
+        assert [s["id"] for s in (await client.get(path)).json()["scenes"]] == order
+        assert (
+            await client.put(path + "/scenes/reorder", json={"scene_ids": order[::-1]})
+        ).status_code == 422
+        assert (await client.delete(path + "/scenes/" + ids[0])).status_code == 422
+        assert (await client.delete(path + "/scenes/" + new)).status_code == 200
+        preview = await client.post(
+            scene_path + "/preview",
+            json={
+                "visual_payload": {
+                    **data["scenes"][0]["visual_payload"],
+                    "title": "草稿预览",
+                }
+            },
+        )
+        assert preview.content.startswith(b"\x89PNG")
+        assert (await client.get(path)).json()["scenes"][0]["visual_payload"][
+            "title"
+        ] != "草稿预览"
+        reply = await client.post(scene_path + "/rewrite", json={"intent": "更简洁"})
+        assert (
+            reply.status_code == 200
+            and reply.json()["narration"] != data["scenes"][0]["narration"]
+        )
+        audio = await client.post(
+            scene_path + "/audition", json={"narration": "试听。"}
+        )
+        assert audio.status_code == 200 and len(audio.content) > 1000
+
         assert (
             await client.patch(scene_path, json={"visual_payload": {}})
         ).status_code == 422

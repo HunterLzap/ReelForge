@@ -1,1 +1,11 @@
-{% extends 'base.html' %}{% block content %}<em>“</em><h1>{% if p.highlight in p.quote %}{% set parts=p.quote.split(p.highlight,1) %}{{parts[0]}}<em>{{p.highlight}}</em>{{parts[1]}}{% else %}{{p.quote}}{% endif %}</h1><aside>— {{p.attribution}}</aside>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="quote-mark">“</div>
+<blockquote>
+{% if p.highlight in p.quote %}
+  {% set before,after = p.quote.split(p.highlight,1) %}
+  {{ before }}<mark>{{ p.highlight }}</mark>{{ after }}
+{% else %}{{ p.quote }}{% endif %}
+</blockquote>
+<p class="byline">— {{ p.attribution }}</p>
+{% endblock %}

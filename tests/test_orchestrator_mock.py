@@ -1,8 +1,9 @@
+import json
 from zipfile import ZipFile
 
 from app.db import repository as repo
 from app.db.database import init
-from app.media.assembler import duration
+from app.media.assembler import command, duration
 from app.pipeline import orchestrator as flow
 from app.schemas.project import ProjectCreate
 from app.schemas.research import FactCheckReport
@@ -15,7 +16,21 @@ async def test_video_end_to_end():
     result = await repo.project(p["id"])
     assert result["status"] == "COMPLETED" and result["total_tokens"] == 0
     out = flow.folder(p["id"]) / "output"
-    assert duration(out / "final.mp4") > 1000
+    assert 60000 <= duration(out / "final.mp4") <= 120000
+    streams = json.loads(
+        command(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_streams",
+                "-of",
+                "json",
+                out / "final.mp4",
+            ]
+        )
+    )["streams"]
+    assert abs(float(streams[0]["duration"]) - float(streams[1]["duration"])) < 0.001
     assert "https://example.org/" in (out / "sources.md").read_text(encoding="utf-8")
 
 
@@ -41,13 +56,11 @@ async def test_fact_loop_cards_and_rebuild(monkeypatch):
     before = [path.stat().st_mtime_ns for path in paths]
     assert not list(root.rglob("audio.mp3"))
     with ZipFile(root / "output/cards.zip") as z:
-        assert z.namelist() == ["01.png", "02.png", "03.png"]
+        assert z.namelist() == [f"{i:02}.png" for i in range(1, 7)]
     await flow.edit(pid, scenes[1]["id"], {"narration": "更新文案。"})
     await flow.run(pid, "rebuild")
     assert [path.stat().st_mtime_ns == t for path, t in zip(paths, before)] == [
-        True,
-        False,
-        True,
+        i != 1 for i in range(len(paths))
     ]
     assert len([r for r in await repo.runs(pid) if r["stage_name"] == "Director"]) == 1
 
@@ -65,3 +78,23 @@ async def test_persistent_failed_check(monkeypatch):
     with pytest.raises(ValueError, match="事实核查"):
         await flow.run(pid)
     assert (await repo.project(pid))["status"] == "FAILED"
+
+
+async def test_claim_verdict_overrides_optimistic_summary(monkeypatch):
+    pack = await flow.Researcher().process("演示选题", [])
+    agent = flow.FactChecker()
+
+    async def ungrounded(*args):
+        return {
+            "approved": True,
+            "issues": [],
+            "summary": "需要检查",
+            "checks": [
+                {"claim": item.claim, "source": "S99", "verdict": "conflicting"}
+                for item in pack.key_facts + pack.data_points
+            ],
+        }
+
+    monkeypatch.setattr(agent.llm, "json", ungrounded)
+    report = await agent.process(pack)
+    assert not report.approved and report.follow_up_queries

@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{{ p.label }}</h2>
+<div class="metric"><strong>{{ p.metric }}</strong><b>{{ p.unit }}</b></div>
+<p class="stripe">{{ p.delta }}</p>
+<p>{{ p.context }}</p>
+{% endblock %}

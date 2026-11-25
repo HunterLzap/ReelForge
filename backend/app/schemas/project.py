@@ -29,6 +29,8 @@ class ProjectCreate(BaseModel):
     target_format: FormatType = FormatType.landscape
     theme: Literal["editorial_dark", "clean_light", "warm_amber"] = "editorial_dark"
     voice: str = Field(default="", max_length=100)
+    brand_label: str = Field(default="", max_length=32)
+    transition: Literal["fade", "slideleft"] = "fade"
     auto_approve: bool = False
 
 
