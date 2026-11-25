@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<h2>{{p.heading}}</h2>{% for x in p.steps %}<section><small>{{x.step_label}}</small>　<b>{{x.title}}</b><p>{{x.desc}}</p></section>{% endfor %}{% endblock %}

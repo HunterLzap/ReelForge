@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<h2>{{p.heading}}</h2>{% for x in p['items'] %}<section><em>{{'%02d'|format(loop.index)}}</em>　<b>{{x.label}}</b><p>{{x.desc}}</p></section>{% endfor %}{% endblock %}
