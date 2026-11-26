@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from app.api.external import idle
 from app.api.pipeline import locks
 from app.api.projects import get
-from app.core.config import settings
+from app.core.config import ROOT, settings
 from app.core.llm_client import cli_args
 from app.db import repository as repo
 from app.media.limits import project_files
@@ -37,6 +37,10 @@ def engines():
             "mcpServers": {
                 "reelforge": {
                     "command": sys.executable,
+                    "env": {
+                        "PYTHONPATH": str(ROOT / "backend"),
+                        "REELFORGE_API_BASE": cfg.reelforge_api_base,
+                    },
                     "args": ["-m", "app.mcp_server"],
                 }
             }
@@ -73,3 +77,10 @@ async def purge(body: storage_manager.PurgeRequest):
                     pid,
                 )
     return {"freed_bytes": freed}
+
+
+@router.post("/api/system/probe")
+async def probe():
+    from app.services.model_manager import probe_hardware
+
+    return await probe_hardware()

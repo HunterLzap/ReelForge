@@ -218,6 +218,24 @@ async def export_timeline(doc):
         tmp = Path(directory)
         layers = await render_timeline(doc, tmp / "layers.mp4")
         final = tmp / "final.mp4"
+        audio = await asyncio.to_thread(
+            command,
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "a:0",
+                "-show_entries",
+                "stream=index",
+                "-of",
+                "csv=p=0",
+                layers,
+            ],
+        )
+        silent_input = (
+            [] if audio else ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+        )
         async with slot("render"):
             await run_command(
                 [
@@ -228,16 +246,18 @@ async def export_timeline(doc):
                     "error",
                     "-i",
                     layers,
+                    *silent_input,
                     "-map",
                     "0:v:0",
                     "-map",
-                    "0:a?",
+                    "0:a:0" if audio else "1:a:0",
+                    "-shortest",
                     "-c:v",
                     "copy",
                     "-c:a",
                     "aac",
                     "-af",
-                    "alimiter=limit=0.97:level=false:latency=true",
+                    "alimiter=limit=0.97:level=false:latency=true,apad",
                     "-movflags",
                     "+faststart",
                     final,

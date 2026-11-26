@@ -1297,3 +1297,223 @@ progress {
 :is(.poster, .player-source) :is(h1, h2, h3, p, small, blockquote) {
   all: revert;
 }
+
+.dialog:has(.model-center) {
+  width: min(850px, 96vw);
+}
+.hardware {
+  padding: 14px 16px;
+  background: var(--accent-soft);
+  border: 1px solid #dbeafe;
+  border-radius: 9px;
+}
+.hardware h3,
+.catalog-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.hardware p,
+.hardware small {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.hardware-pills {
+  margin-top: 8px;
+  gap: 5px;
+}
+.hardware-pills span,
+.filter-chips button {
+  background: white;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-size: 12px;
+}
+.model-center [role="tabpanel"] {
+  overflow-x: auto;
+}
+.routing-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.routing-table th,
+.routing-table td {
+  padding: 8px 5px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.routing-table thead th,
+.caption-header {
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 550;
+}
+.routing-table td input {
+  min-width: 110px;
+}
+.routing-table .select {
+  width: 100%;
+}
+.slot-label {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  white-space: nowrap;
+}
+.slot-detail {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 5px;
+  background: var(--bg-app);
+  flex-wrap: wrap;
+}
+.slot-detail .field {
+  flex: 1;
+}
+.slot-detail small {
+  flex-basis: 100%;
+}
+.catalog-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.catalog-row small,
+.catalog-row strong {
+  display: block;
+}
+.catalog-row strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.download-progress {
+  grid-column: 1/-1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.model-center pre {
+  font-size: 12px;
+  padding: 14px;
+  overflow: auto;
+  background: var(--bg-control);
+  border-radius: 6px;
+}
+.transcript-pane {
+  gap: 10px;
+}
+.transcript-pane details,
+.transcript-pane label {
+  font-size: 12px;
+}
+.transcript-line {
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.transcript-line time {
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.transcript-line p {
+  line-height: 1.9;
+}
+.word {
+  padding: 1px 2px;
+  border-radius: 3px;
+}
+.word.flagged {
+  background: #fff4d8;
+}
+.word.deleted {
+  text-decoration: line-through;
+  color: var(--ink-muted);
+}
+.word.selected,
+.filter-chips button[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: #bfdbfe;
+}
+.word:hover {
+  outline: 1px solid var(--accent);
+}
+.cut-preview {
+  gap: 4px;
+}
+.cut-preview button:not(.btn) {
+  text-align: left;
+  font-size: 12px;
+}
+.edit-dock,
+.subtitle-table {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.edit-dock > .tab-list {
+  align-self: flex-start;
+  margin: 4px 12px 0;
+  font-size: 12px;
+}
+.edit-dock > [role="tabpanel"][data-state="active"] {
+  flex: 1;
+  min-height: 0;
+}
+.subtitle-tools {
+  padding: 6px 12px;
+}
+.subtitle-tools input {
+  width: 130px;
+}
+.caption-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.caption-row {
+  display: grid;
+  grid-template-columns: 40px 170px minmax(120px, 1fr) 160px;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.caption-row time,
+.caption-row .btn {
+  font-size: 12px;
+}
+.caption-row .btn {
+  height: 29px;
+  min-height: 0;
+  padding: 3px 8px;
+}
+.caption-header {
+  height: 26px;
+  background: var(--bg-app);
+}
+.long-caption {
+  border-color: var(--warning);
+}
+.screen-tools {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+  gap: 8px;
+}
+
+.apply-cut {
+  color: var(--accent);
+  border-color: #bfdbfe;
+  background: var(--accent-soft);
+}
+.model-center,
+.transcript-pane,
+.subtitle-table {
+  font-variant-numeric: tabular-nums;
+}

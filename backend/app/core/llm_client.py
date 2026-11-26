@@ -92,11 +92,24 @@ class LLMClient:
             )
         if self.mode != "api":
             raise ValueError("请在外部 Agent 中完成 MCP 项目的推理")
+        from app.services.model_manager import CATALOG, config_guard, credential, slots
+
+        route = (await slots())["llm_director"]
+        if not route.enabled:
+            raise ValueError("编导模型槽位已停用")
+        config_guard(route)
+        key = credential(route)
+        if route.api_key_env and not key:
+            raise ValueError("未设置 " + route.api_key_env)
+        endpoint, model = route.base_url, route.model
+        if route.provider == "ollama":
+            endpoint = (endpoint or "http://127.0.0.1:11434").removesuffix("/v1") + "/v1"
+            model = CATALOG.get(model, {}).get("ollama", model)
         async with AsyncOpenAI(
-            api_key=cfg.llm_api_key, base_url=cfg.llm_base_url, timeout=90
+            api_key=key or "local", base_url=endpoint, timeout=90
         ) as client:
             result = await client.chat.completions.create(
-                model=cfg.llm_model,
+                model=model,
                 response_format={"type": "json_object"},
                 messages=[
                     {

@@ -12,7 +12,7 @@ import {
 } from "remotion";
 import { EditorialCard } from "../../skills/motion-editorial/components/EditorialCard";
 import { Caption, Overlay, PlaceholderCard } from "./components/Layers";
-import { ScreenFrame } from "./components/ScreenFrame";
+import { ScreenFrame, screenCamera } from "./components/ScreenFrame";
 import { durationMs, frames } from "./types";
 import type { Clip, TimelineDocument, TrackName } from "./types";
 
@@ -27,13 +27,16 @@ function Visual({
   clip,
   src,
   theme,
+  annotations,
 }: {
   clip: Clip;
   src?: string;
   theme?: string;
+  annotations: Clip[];
 }) {
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const camera = screenCamera(annotations, f + frames(clip.start_ms, fps), fps);
   const ms = (f * 1000) / fps;
   const duration = clip.end_ms - clip.start_ms;
   const fade =
@@ -98,6 +101,7 @@ function Visual({
   return (
     <AbsoluteFill style={{ opacity }}>
       <ScreenFrame
+        camera={camera}
         style={clip.screen_frame || clip.frame_style}
         zoom={clip.zoom_keyframes}
         offset={clip.source_in_ms}
@@ -201,7 +205,12 @@ export function TimelinePlayer({ timeline: doc, resolveAsset }: PlayerProps) {
               durationInFrames={Math.max(1, frames(clip.end_ms, fps) - from)}
             >
               {track === "video" ? (
-                <Visual clip={clip} src={src} theme={doc.theme} />
+                <Visual
+                  annotations={doc.tracks.annotation}
+                  clip={clip}
+                  src={src}
+                  theme={doc.theme}
+                />
               ) : track === "subtitle" ? (
                 <Caption clip={clip} style={doc.subtitle_style} />
               ) : track === "audio" ? (
@@ -215,6 +224,9 @@ export function TimelinePlayer({ timeline: doc, resolveAsset }: PlayerProps) {
                 )
               ) : (
                 <Overlay
+                  annotations={
+                    track === "annotation" ? doc.tracks.annotation : undefined
+                  }
                   clip={{
                     ...clip,
                     props: { ...clip.props, src: mediaUrl(clip.props?.src) },

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { SlidersHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { useStudio } from "@/store/studioStore";
+import { usePlayback } from "./editorPlayback";
+import { useStudio, report } from "@/store/studioStore";
 import { api } from "@/api/client";
 import { timecode, trackLabels, headlineKey, clipName } from "@/studio";
 import type { Clip, TrackName, ReviewPin } from "@/types";
@@ -96,6 +97,71 @@ function PinInspector({ pin: p }: { pin: ReviewPin }) {
     </>
   );
 }
+function ScreenTools({ clip }: { clip: Clip }) {
+  const doc = useStudio((s) => s.timeline)!,
+    accept = useStudio((s) => s.acceptTimeline),
+    select = useStudio((s) => s.select);
+  const [position, place] = useState("center");
+  async function add(kind: string) {
+    const start = Math.max(
+      clip.start_ms,
+      Math.min(
+        Math.round((usePlayback.getState().frame * 1000) / doc.fps),
+        clip.end_ms - 1,
+      ),
+    );
+    const box = {
+      x: position === "left" ? 0.12 : position === "right" ? 0.58 : 0.35,
+      y: 0.32,
+      w: 0.3,
+      h: 0.18,
+    };
+    try {
+      const next = await api.annotate(doc.project_id, doc.revision, {
+        kind,
+        start_ms: start,
+        duration_ms: Math.min(2200, clip.end_ms - start),
+        target_bbox: box,
+        scale: 1.65,
+        callout_text: kind === "callout_box" ? "点击此处" : "",
+      });
+      accept(next);
+      const added = next.tracks.annotation.find(
+        (c) => !doc.tracks.annotation.some((old) => old.id === c.id),
+      );
+      if (added && useStudio.getState().project?.id === doc.project_id)
+        select({ track: "annotation", id: added.id });
+    } catch (e) {
+      report(e);
+    }
+  }
+  return (
+    <section className="screen-tools stack">
+      <h3>录屏标注</h3>
+      <Select
+        label="标注区域"
+        value={position}
+        onChange={place}
+        options={[
+          { value: "left", label: "画面左侧" },
+          { value: "center", label: "画面中央" },
+          { value: "right", label: "画面右侧" },
+        ]}
+      />
+      <div className="row">
+        {[
+          ["zoom_focus", "放大镜头"],
+          ["spotlight", "聚光灯"],
+          ["callout_box", "引导气泡"],
+        ].map(([k, label]) => (
+          <Button key={k} onClick={() => add(k)}>
+            + {label}
+          </Button>
+        ))}
+      </div>
+    </section>
+  );
+}
 function ClipInspector({ clip: c, track }: { clip: Clip; track: TrackName }) {
   const { patchTimeline, skills, media } = useStudio();
   const sourceDuration = media.find((a) => a.id === c.asset_id)?.duration_ms;
@@ -155,7 +221,9 @@ function ClipInspector({ clip: c, track }: { clip: Clip; track: TrackName }) {
   const preset = c.screen_frame ?? c.frame_style,
     zoom = c.zoom_keyframes?.[0] ??
       preset?.zoom_keyframes?.[0] ?? [0, 1, 0.5, 0.5];
-  const r = c.rect ?? c.target_rect ?? { x: 0.06, y: 0.09, w: 0.5, h: 0.12 };
+  const r = c.target_bbox ??
+    c.rect ??
+    c.target_rect ?? { x: 0.06, y: 0.09, w: 0.5, h: 0.12 };
   const fields = templates.find((t) => t.id === template)?.props_schema
     .properties as Record<string, { type: string | string[] }> | undefined;
   function updateProp(key: string, s: string) {
@@ -271,7 +339,7 @@ function ClipInspector({ clip: c, track }: { clip: Clip; track: TrackName }) {
               new Set([
                 c.kind,
                 ...(track === "annotation"
-                  ? ["spotlight", "cursor", "callout_box"]
+                  ? ["zoom_focus", "spotlight", "cursor", "callout_box"]
                   : ["badge", "callout_box"]),
               ]),
             )}
@@ -311,6 +379,76 @@ function ClipInspector({ clip: c, track }: { clip: Clip; track: TrackName }) {
                   );
                 })}
             </>
+          )}
+          {screen && (
+            <>
+              <Edit
+                label="窗口留白"
+                type="number"
+                min={0}
+                max={240}
+                value={preset?.padding ?? 0}
+                save={(v) =>
+                  patch({ screen_frame: { ...preset, padding: Number(v) } })
+                }
+              />
+              <Field label="窗口背景">
+                <Select
+                  label="窗口背景"
+                  value={
+                    preset?.gradient ??
+                    "linear-gradient(140deg,#374852,#897a70)"
+                  }
+                  options={[
+                    {
+                      value: "linear-gradient(140deg,#374852,#897a70)",
+                      label: "岩灰",
+                    },
+                    {
+                      value: "linear-gradient(140deg,#405369,#b2c4d0)",
+                      label: "雾蓝",
+                    },
+                    {
+                      value: "linear-gradient(140deg,#fbefe3,#d6b89a)",
+                      label: "暖沙",
+                    },
+                  ]}
+                  onChange={(gradient) =>
+                    patch({ screen_frame: { ...preset, gradient } })
+                  }
+                />
+              </Field>
+              <div className="between">
+                窗口圆角
+                <Switch
+                  label="窗口圆角"
+                  checked={
+                    !!preset &&
+                    preset.rounded !== false &&
+                    preset.borderRadius !== 0
+                  }
+                  onChange={(rounded) =>
+                    patch({
+                      screen_frame: {
+                        ...preset,
+                        rounded,
+                        borderRadius: rounded ? 28 : 0,
+                      },
+                    })
+                  }
+                />
+              </div>
+            </>
+          )}
+          {c.kind === "zoom_focus" && (
+            <Edit
+              label="放大倍率"
+              type="number"
+              min={1}
+              max={4}
+              value={c.scale ?? c.zoom_scale ?? 1.65}
+              save={(v) => patch({ scale: Number(v) })}
+            />
           )}
           {screen &&
             [
@@ -373,9 +511,24 @@ function ClipInspector({ clip: c, track }: { clip: Clip; track: TrackName }) {
                   key={k}
                   label={"区域 " + k.toUpperCase()}
                   min={k === "x" || k === "y" ? 0 : 0.01}
-                  max={1}
+                  max={
+                    k === "x"
+                      ? 1 - r.w
+                      : k === "y"
+                        ? 1 - r.h
+                        : k === "w"
+                          ? 1 - r.x
+                          : 1 - r.y
+                  }
                   value={r[k]}
-                  save={(v) => patch({ rect: { ...r, [k]: Number(v) } })}
+                  save={(v) =>
+                    patch({
+                      [track === "annotation" ? "target_bbox" : "rect"]: {
+                        ...r,
+                        [k]: Number(v),
+                      },
+                    })
+                  }
                 />
               ))}
             </div>
@@ -396,6 +549,7 @@ function ClipInspector({ clip: c, track }: { clip: Clip; track: TrackName }) {
           )}
         </div>
       </details>
+      {screen && <ScreenTools clip={c} />}
     </>
   );
 }
@@ -438,6 +592,10 @@ export function InspectorPanel() {
         ) : (
           <>
             <h3>工程设置</h3>
+            {doc.skill_id === "screen-tutorial" &&
+              doc.tracks.video.some((c) => c.asset_id) && (
+                <ScreenTools clip={doc.tracks.video.find((c) => c.asset_id)!} />
+              )}
             <Field label="导出画幅">
               <AspectControl />
             </Field>

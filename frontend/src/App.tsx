@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import { useStudio, report } from "@/store/studioStore";
 import { HomeView, CreateDialog } from "./components/HomeView";
 import { StudioView } from "./components/StudioView";
+import { ModelRouterModal } from "./components/ModelRouterModal";
 import { CommandPalette } from "./components/CommandPalette";
 import { useShortcut } from "./components/editorPlayback";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -10,6 +11,7 @@ import { Dialog } from "./components/ui/dialog";
 import { Button } from "./components/ui/button";
 import { Input, Field } from "./components/ui/input";
 export default function App() {
+  const modelCenter = useStudio((s) => s.modelCenter);
   const project = useStudio((s) => s.project);
   const [palette, setPalette] = useState(false),
     [mode, create] = useState<string | null>(null),
@@ -31,17 +33,22 @@ export default function App() {
       s.close();
     };
   }, []);
-  useShortcut("mod+k", () => setPalette((v) => !v), !mode && !auth);
+  useShortcut(
+    "mod+k",
+    () => setPalette((v) => !v),
+    !mode && !auth && !modelCenter,
+  );
   return (
     <TooltipProvider delayDuration={350}>
       {project ? (
         <StudioView
           palette={() => setPalette(true)}
-          shortcuts={!palette && !mode && !auth}
+          shortcuts={!palette && !mode && !auth && !modelCenter}
         />
       ) : (
         <HomeView palette={() => setPalette(true)} create={create} />
       )}
+      {modelCenter && <ModelRouterModal />}
       <CommandPalette
         open={palette}
         close={() => setPalette(false)}

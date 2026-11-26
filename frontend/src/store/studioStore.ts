@@ -25,6 +25,9 @@ type ExportState = {
   message?: string;
 };
 interface Studio {
+  modelCenter: "models" | "probe" | null;
+  showModels: (view: "models" | "probe" | null) => void;
+  acceptTimeline: (timeline: TimelineDocument) => void;
   projects: Project[];
   skills: Skill[];
   project: Project | null;
@@ -156,6 +159,15 @@ export const useStudio = create<Studio>((set, get) => {
     }
   }
   return {
+    modelCenter: null,
+    showModels: (modelCenter) => set({ modelCenter }),
+    acceptTimeline: (timeline) => {
+      if (
+        timeline.project_id === get().project?.id &&
+        timeline.revision >= (get().timeline?.revision ?? 0)
+      )
+        set({ timeline });
+    },
     projects: [],
     skills: [],
     project: null,

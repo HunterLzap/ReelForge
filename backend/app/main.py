@@ -11,6 +11,7 @@ from app.api import (
     assets,
     external,
     media,
+    models,
     pipeline,
     projects,
     review_pins,
@@ -19,6 +20,7 @@ from app.api import (
     stream,
     system,
     timelines,
+    transcripts,
 )
 from app.core.auth import UnsafePath, authenticate
 from app.core.config import settings
@@ -76,6 +78,8 @@ for module in (
     system,
     assets,
     media,
+    models,
+    transcripts,
     skills,
     timelines,
     review_pins,

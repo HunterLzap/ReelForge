@@ -1,3 +1,5 @@
+import { SubtitleTable } from "./SubtitleTable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { useEffect, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import {
@@ -209,7 +211,18 @@ export function EditStage({ shortcuts }: { shortcuts: boolean }) {
       </Panel>
       <Separator className="separator horizontal" />
       <Panel id="timeline" defaultSize="32%" minSize="18%">
-        <TimelinePanel jump={jump} shortcuts={shortcuts && !mode} />
+        <Tabs className="edit-dock" defaultValue="timeline">
+          <TabsList aria-label="剪辑面板" className="tab-list">
+            <TabsTrigger value="timeline">时间轴</TabsTrigger>
+            <TabsTrigger value="subtitles">极速字幕</TabsTrigger>
+          </TabsList>
+          <TabsContent value="timeline">
+            <TimelinePanel jump={jump} shortcuts={shortcuts && !mode} />
+          </TabsContent>
+          <TabsContent value="subtitles">
+            <SubtitleTable jump={jump} />
+          </TabsContent>
+        </Tabs>
       </Panel>
     </Group>
   );

@@ -8,32 +8,61 @@ import {
 } from "remotion";
 import { EditorialCard } from "../../../skills/motion-editorial/components/EditorialCard";
 import type { Clip, SubtitleStyle } from "../types";
+import { screenCamera } from "./ScreenFrame";
 
-export function Overlay({ clip, src }: { clip: Clip; src?: string }) {
+export function Overlay({
+  clip,
+  src,
+  annotations,
+}: {
+  clip: Clip;
+  src?: string;
+  annotations?: Clip[];
+}) {
   const f = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const enter = spring({ frame: f, fps, config: { damping: 20 } });
-  const r = clip.rect ||
+  const camera =
+    annotations &&
+    screenCamera(
+      annotations,
+      f + Math.round((clip.start_ms * fps) / 1000),
+      fps,
+    );
+  const box = clip.target_bbox ||
+    clip.rect ||
     clip.target_rect || { x: 0.06, y: 0.09, w: 0.5, h: 0.12 };
-  const spotlight =
-    clip.spotlight || ["spotlight", "zoom_focus"].includes(clip.kind);
+  const r = camera
+    ? {
+        x: box.x * camera.scale + camera.x,
+        y: box.y * camera.scale + camera.y,
+        w: box.w * camera.scale,
+        h: box.h * camera.scale,
+      }
+    : box;
+  // Tooltips follow the target but stay readable inside the canvas and above captions.
+  const callout = clip.kind === "callout_box";
+  const left = callout ? Math.max(0.02, Math.min(0.98 - box.w, r.x)) : r.x;
+  const top = callout ? Math.max(0.02, Math.min(0.8 - box.h, r.y)) : r.y;
+  const spotlight = clip.spotlight || clip.kind === "spotlight";
   const cursor = ["cursor", "cursor_focus"].includes(clip.kind);
   const label =
     clip.callout_text || clip.text || clip.props?.text || clip.props?.title;
+  if (clip.kind === "zoom_focus" && !spotlight && !label) return null;
   return (
     <div
       style={{
         position: "absolute",
-        left: r.x * width,
-        top: r.y * height,
-        width: r.w * width,
-        height: r.h * height,
-        opacity: enter,
+        left: left * width,
+        top: top * height,
+        width: (callout ? box.w : r.w) * width,
+        height: (callout ? box.h : r.h) * height,
+        opacity: callout ? 1 : enter,
         transform: "translateY(" + (1 - enter) * 18 + "px)",
         borderRadius: clip.border_radius ?? 16,
         boxShadow: spotlight ? "0 0 0 300vmax rgba(0,0,0,.55)" : undefined,
         border: spotlight ? "4px solid #f4d199" : undefined,
-        background: spotlight || cursor || src ? "transparent" : "#16282eef",
+        backgroundColor: spotlight || cursor || src ? "transparent" : "#16282eef",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -41,6 +70,15 @@ export function Overlay({ clip, src }: { clip: Clip; src?: string }) {
         fontSize: Math.min(width, height) * 0.039,
         fontWeight: 650,
         textAlign: "center",
+        ...(callout && {
+          backgroundColor: "#0f172a",
+          color: "#f8fafc",
+          border: "2px solid #2563eb",
+          borderRadius: 12,
+          boxShadow: spotlight
+            ? "0 0 0 300vmax rgba(0,0,0,.55)"
+            : "0 4px 12px rgba(15,23,42,.45)",
+        }),
       }}
     >
       {clip.kind === "motion_card" || clip.component_id ? (

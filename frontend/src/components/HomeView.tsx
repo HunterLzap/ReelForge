@@ -123,6 +123,9 @@ export function HomeView({
           ReelForge <Badge>v3.0</Badge>
         </div>
         <div className="row">
+          <Button onClick={() => useStudio.getState().showModels("models")}>
+            模型
+          </Button>
           <StoragePill />
           <CommandButton open={palette} />
           <Button variant="primary" onClick={() => create("motion-editorial")}>

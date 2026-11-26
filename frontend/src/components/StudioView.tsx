@@ -72,6 +72,9 @@ export function StudioView({
               <Redo2 />
             </Button>
           </Tooltip>
+          <Button onClick={() => useStudio.getState().showModels("models")}>
+            模型
+          </Button>
           <StoragePill />
           <CommandButton open={palette} />
           <Button variant="primary" onClick={() => setStage("delivery")}>

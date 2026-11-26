@@ -229,8 +229,10 @@ class TimelineEngine:
     async def get(self, pid):
         return await self._transaction(pid)
 
-    async def patch(self, pid, request: TimelinePatchRequest):
-        return await self._transaction(pid, "patch", request.base_revision, request)
+    async def patch(self, pid, request: TimelinePatchRequest, *, transcript=None):
+        return await self._transaction(
+            pid, "patch", request.base_revision, request, transcript
+        )
 
     async def undo(self, pid, base_revision=None):
         return await self._transaction(pid, "undo", base_revision)
@@ -238,7 +240,9 @@ class TimelineEngine:
     async def redo(self, pid, base_revision=None):
         return await self._transaction(pid, "redo", base_revision)
 
-    async def _transaction(self, pid, action=None, base=None, request=None):
+    async def _transaction(
+        self, pid, action=None, base=None, request=None, transcript=None
+    ):
         async with connection() as db:
             await db.execute("BEGIN IMMEDIATE")
             projects = await db.execute_fetchall(
@@ -275,6 +279,10 @@ class TimelineEngine:
                         doc = TimelineDocument.model_validate(values)
                     except (ValueError, TypeError) as exc:
                         raise HTTPException(422, str(exc)) from exc
+                    if transcript is not None:
+                        doc.meta["transcript_id"] = await repo.save_transcript(
+                            db, pid, transcript
+                        )
                     history = history[: cursor + 1] + [revision]
                     cursor += 1
                     summary, author = request.summary, request.author

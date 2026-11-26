@@ -21,6 +21,9 @@ async def execute(sql, *params):
 
 
 async def create(data):
+    from app.services.model_manager import slots
+
+    voice = data.voice or (await slots())["tts_voice"].model
     pid = uuid4().hex
     await execute(
         "INSERT INTO projects(id,topic,target_format,theme,voice,auto_approve,brand_label,transition,execution_mode,seed_materials,seed_only,subtitle_style,speech_rate,skill_id,aspect_ratio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -28,7 +31,7 @@ async def create(data):
         data.topic,
         data.target_format,
         data.theme,
-        data.voice or settings().default_tts_voice,
+        voice,
         data.auto_approve,
         data.brand_label,
         data.transition,
@@ -241,4 +244,40 @@ async def revisions(pid):
         "SELECT revision,op_summary,author,created_at FROM timeline_revisions "
         "WHERE project_id=? ORDER BY revision DESC",
         pid,
+    )
+
+
+async def save_transcript(db, pid, transcript):
+    """Insert an immutable snapshot in the same transaction as its timeline pointer."""
+    tid = uuid4().hex
+    await db.execute(
+        "INSERT INTO transcripts(id,project_id,asset_id,language,model_used,segments_json) VALUES(?,?,?,?,?,?)",
+        (
+            tid,
+            pid,
+            transcript.asset_id,
+            transcript.language,
+            transcript.engine,
+            transcript.model_dump_json(),
+        ),
+    )
+    return tid
+
+
+async def get_latest_transcript(pid, timeline=None):
+    from app.schemas.transcript import TranscriptDocument
+
+    if timeline is None:
+        from app.services.timeline_engine import engine
+
+        timeline = await engine.get(pid)
+    result = await rows(
+        "SELECT segments_json FROM transcripts WHERE project_id=? AND id=?",
+        pid,
+        timeline.meta.get("transcript_id"),
+    )
+    return (
+        TranscriptDocument.model_validate_json(result[0]["segments_json"])
+        if result
+        else None
     )

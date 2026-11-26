@@ -1,0 +1,167 @@
+{
+  "id": "screen-tutorial",
+  "name": "录屏精剪",
+  "version": "1.0.0",
+  "description": "转写录屏，清理重说与停顿，突出关键操作。",
+  "supported_aspects": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "3:4"
+  ],
+  "inputs": {
+    "video": "录屏原片"
+  },
+  "templates": [
+    {
+      "id": "window_frame",
+      "name": "录屏窗口",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "padding": {
+            "type": "number",
+            "default": 48
+          },
+          "rounded": {
+            "type": "boolean",
+            "default": true
+          },
+          "gradient": {
+            "type": "string",
+            "default": "linear-gradient(140deg,#405369,#b2c4d0)"
+          }
+        }
+      }
+    },
+    {
+      "id": "zoom_focus",
+      "name": "放大镜头",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "target_bbox": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "w": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "h": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "w",
+              "h"
+            ]
+          },
+          "scale": {
+            "type": "number",
+            "default": 1.65,
+            "minimum": 1,
+            "maximum": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "spotlight",
+      "name": "聚光灯",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "target_bbox": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "w": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "h": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "w",
+              "h"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "callout_box",
+      "name": "引导气泡",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "target_bbox": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "w": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "h": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "w",
+              "h"
+            ]
+          },
+          "callout_text": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

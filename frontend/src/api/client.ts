@@ -11,6 +11,16 @@ import type {
   MediaAsset,
   StorageInfo,
   Aspect,
+  Hardware,
+  ModelCenter,
+  ModelConfig,
+  Slot,
+  DownloadTask,
+  TranscriptDocument,
+  TranscriptState,
+  RoughCutPreview,
+  RoughCutRequest,
+  Rect,
 } from "@/types";
 
 const params = new URL(location.href);
@@ -73,6 +83,65 @@ function request<T>(path: string, method = "GET", data?: unknown) {
   return json<T>("/api/projects" + path, method, data);
 }
 export const api = {
+  probe: () => json<Hardware>("/api/system/probe", "POST"),
+  models: () => json<ModelCenter>("/api/models"),
+  saveModel: (slot: Slot, config: ModelConfig) =>
+    json<ModelConfig>("/api/models/" + slot, "PUT", config),
+  testModel: (slot: Slot) =>
+    json<{ ok: boolean; message: string }>("/api/models/test", "POST", {
+      slot,
+    }),
+  downloadEvents: () => new EventSource(resourceUrl("/api/models/downloads")),
+  downloads: () => json<DownloadTask[]>("/api/models/downloads"),
+  download: (model: string, mirror: string) =>
+    json<DownloadTask>("/api/models/download", "POST", { model, mirror }),
+  cancelDownload: (id: string) =>
+    json<DownloadTask>("/api/models/downloads/" + id + "/cancel", "POST"),
+  engines: () => json<{ mcp_config: object }>("/api/system/engines"),
+  transcript: (pid: string) =>
+    request<TranscriptState>("/" + pid + "/transcript"),
+  transcribe: (pid: string, base_revision: number, asset_id?: string) =>
+    request<TranscriptDocument>("/" + pid + "/transcribe", "POST", {
+      base_revision,
+      asset_id,
+    }),
+  roughCut: (pid: string, body: RoughCutRequest) =>
+    request<RoughCutPreview>("/" + pid + "/rough-cut", "POST", body),
+  syncSubtitles: (pid: string, base_revision: number) =>
+    request<TimelineDocument>(
+      "/" + pid + "/transcript/sync-subtitles",
+      "POST",
+      { base_revision },
+    ),
+  replaceTerms: (
+    pid: string,
+    base_revision: number,
+    find: string,
+    replace: string,
+  ) =>
+    request<{ timeline: TimelineDocument; replaced_count: number }>(
+      "/" + pid + "/subtitles/batch-replace",
+      "POST",
+      { base_revision, find, replace },
+    ),
+  subtitlesUrl: (pid: string, format: "ass" | "srt") =>
+    resourceUrl("/api/projects/" + pid + "/subtitles/export?format=" + format),
+  annotate: (
+    pid: string,
+    base_revision: number,
+    clip: {
+      kind: string;
+      start_ms: number;
+      duration_ms: number;
+      target_bbox: Rect;
+      scale?: number;
+      callout_text?: string;
+    },
+  ) =>
+    request<TimelineDocument>("/" + pid + "/annotations/zoom", "POST", {
+      ...clip,
+      base_revision,
+    }),
   events: (pid: string) =>
     new EventSource(resourceUrl("/api/projects/" + pid + "/stream")),
   projects: () => request<Project[]>(""),

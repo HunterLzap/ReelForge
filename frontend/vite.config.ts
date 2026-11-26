@@ -7,6 +7,7 @@ const path = (relative: string) =>
 const target = process.env.REELFORGE_API_TARGET || "http://127.0.0.1:8000";
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: { include: ["@tanstack/react-virtual"] },
   resolve: {
     alias: {
       "@": path("./src"),

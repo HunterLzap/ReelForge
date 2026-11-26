@@ -61,7 +61,8 @@ export function optimistic(doc: TimelineDocument, ops: TimelineOp[]) {
       const index = items.findIndex((c) => c.id === op.clip_id);
       if (index < 0) continue;
       const c = items[index];
-      if (op.op === "update_clip") {
+      if (op.op === "delete_clip") items.splice(index, 1);
+      else if (op.op === "update_clip") {
         items[index] = { ...c, ...op.patch };
         if (op.patch.props)
           items[index].props = { ...c.props, ...op.patch.props };

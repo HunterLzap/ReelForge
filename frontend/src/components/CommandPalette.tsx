@@ -53,6 +53,14 @@ export function CommandPalette({
               </Command.Item>
             </Command.Group>
           )}
+          <Command.Group heading="工作区">
+            <Command.Item onSelect={action(() => s.showModels("models"))}>
+              打开模型中心
+            </Command.Item>
+            <Command.Item onSelect={action(() => s.showModels("probe"))}>
+              探测本机硬件
+            </Command.Item>
+          </Command.Group>
           <Command.Group heading="新建作品">
             {modes.map((m) => (
               <Command.Item key={m.id} onSelect={action(() => create(m.id))}>

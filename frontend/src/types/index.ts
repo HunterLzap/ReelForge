@@ -39,6 +39,7 @@ export interface Revision {
   created_at: string;
 }
 export type TimelineOp =
+  | { op: "delete_clip"; track: TrackName; clip_id: string }
   | { op: "add_clip"; track: TrackName; clip: Clip }
   | {
       op: "update_clip";
@@ -113,4 +114,115 @@ export interface ExportResult {
 export type PurgeScope = "temp" | "proxies" | "all_cache" | "exports";
 export type Stage = "plan" | "edit" | "delivery";
 export type Selection =
-  { track: TrackName; id: string } | { pin: string } | null;
+  | { track: TrackName; id: string }
+  | { pin: string }
+  | null;
+
+export type IssueKind = "silence" | "filler" | "retake";
+export interface WordToken {
+  id: string;
+  text: string;
+  start_ms: number;
+  end_ms: number;
+  deleted: boolean;
+  tag: "normal" | "filler" | "pause";
+}
+export interface TranscriptSegment {
+  id: string;
+  text: string;
+  start_ms: number;
+  end_ms: number;
+  words: WordToken[];
+}
+export interface TranscriptDocument {
+  asset_id: string;
+  engine: string;
+  hotwords: string[];
+  segments: TranscriptSegment[];
+}
+export interface RoughCutIssue {
+  id: string;
+  kind: IssueKind;
+  start_ms: number;
+  end_ms: number;
+  text: string;
+  word_ids: string[];
+}
+export interface TranscriptState {
+  transcript: TranscriptDocument;
+  issues: RoughCutIssue[];
+  base_revision: number;
+}
+export interface RoughCutPreview {
+  issues: RoughCutIssue[];
+  saved_ms: number;
+  base_revision: number;
+  timeline: TimelineDocument | null;
+}
+export interface RoughCutRequest {
+  base_revision: number;
+  apply?: boolean;
+  buffer_ms?: number;
+  delete_word_ids?: string[];
+  issue_ids?: string[];
+  cut_ranges_ms?: [number, number][];
+}
+export type Slot =
+  | "llm_director"
+  | "vlm_vision"
+  | "asr_speech"
+  | "tts_voice"
+  | "crawler_extract";
+export interface ModelConfig {
+  provider: string;
+  model: string;
+  base_url: string;
+  api_key_env: string;
+  enabled: boolean;
+  model_size_mb: number;
+  extra: Record<string, unknown>;
+}
+export interface HardwarePolicy {
+  active_profile: string;
+  recommended_profile: string;
+  guarded: boolean;
+  guard_explanation: string;
+}
+export interface Hardware extends HardwarePolicy {
+  cpu_cores: number;
+  ram_total_gb: number;
+  ram_available_gb: number;
+  disk_free_gb: number;
+  disk_total_gb: number;
+  binaries: Record<string, boolean>;
+  services: Record<string, boolean>;
+  gpu: { cuda: boolean; mps: boolean };
+}
+export interface CatalogEntry {
+  id: string;
+  slot: Slot;
+  provider: string;
+  size_mb: number;
+  mirrors: string[];
+}
+export interface ModelCenter extends HardwarePolicy {
+  slots: Record<Slot, ModelConfig>;
+  catalog: CatalogEntry[];
+  presets: {
+    id: string;
+    name: string;
+    base_url: string;
+    api_key_env: string;
+    model: string;
+  }[];
+}
+export interface DownloadTask {
+  task_id: string;
+  model: string;
+  status: string;
+  percentage: number;
+  downloaded_bytes: number;
+  total_bytes: number;
+  error?: string;
+  mock: boolean;
+}

@@ -226,6 +226,13 @@ async def narrate(
     if settings().mock_llm:
         await asyncio.to_thread(mock_voice, folder, text, speech_rate)
     else:
+        from app.services.model_manager import slots
+
+        route = (await slots())["tts_voice"]
+        if not route.enabled:
+            raise ValueError("语音合成槽位已停用")
+        if route.provider != "edge_tts":
+            raise ValueError("当前旁白引擎使用 edge_tts，请在模型中心选择支持的语音")
         async with asyncio.timeout(180):
             with (folder / "audio.mp3").open("wb") as out:
                 async for item in edge_tts.Communicate(

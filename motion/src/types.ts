@@ -1,5 +1,9 @@
 export type TrackName =
-  "video" | "overlay" | "annotation" | "subtitle" | "audio";
+  | "video"
+  | "overlay"
+  | "annotation"
+  | "subtitle"
+  | "audio";
 export type Rect = { x: number; y: number; w: number; h: number };
 export type Zoom = [number, number, number, number];
 export type ScreenFrame = {
@@ -75,6 +79,9 @@ export interface Clip {
   prompt_hint?: string;
   rect?: Rect;
   target_rect?: Rect;
+  target_bbox?: Rect;
+  scale?: number;
+  transcript_segment_id?: string;
   callout_text?: string;
   style_preset?: string;
   highlight_words?: string[];

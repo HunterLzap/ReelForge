@@ -8,7 +8,7 @@ export function Select<T extends string>({
 }: {
   label: string;
   value: T;
-  options: readonly (T | { value: T; label: string })[];
+  options: readonly (T | { value: T; label: string; disabled?: boolean })[];
   onChange: (value: T) => void;
 }) {
   return (
@@ -25,6 +25,7 @@ export function Select<T extends string>({
               return (
                 <S.Item
                   className="option"
+                  disabled={option.disabled}
                   key={option.value}
                   value={option.value}
                 >

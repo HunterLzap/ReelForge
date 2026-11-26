@@ -1,3 +1,4 @@
+import { TranscriptPane } from "./TranscriptPane";
 import { useRef } from "react";
 import { Upload, Plus, Check, RotateCcw, Trash2, Film } from "lucide-react";
 import { useStudio } from "@/store/studioStore";
@@ -28,6 +29,7 @@ export function LeftRail({ jump }: { jump: (ms: number) => void }) {
         {[
           ["shots", "镜头"],
           ["media", "素材"],
+          ["transcript", "文稿"],
           ["pins", "图钉"],
         ].map(([id, label]) => (
           <TabsTrigger value={id} key={id}>
@@ -134,6 +136,9 @@ export function LeftRail({ jump }: { jump: (ms: number) => void }) {
               </span>
             </div>
           ))}
+      </TabsContent>
+      <TabsContent value="transcript">
+        <TranscriptPane jump={jump} />
       </TabsContent>
       <TabsContent value="pins">
         {!pins.length && <p className="empty">按 M 在画面上框选并添加批注。</p>}
