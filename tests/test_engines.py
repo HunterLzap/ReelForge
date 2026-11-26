@@ -321,3 +321,53 @@ async def test_local_assets_and_media_controls(tmp_path, monkeypatch):
                     f"/api/projects/{pid}/settings", json={"transition": transition}
                 )
             ).is_success
+
+
+@pytest.mark.parametrize("fmt", ["video_16_9", "video_9_16", "cards_3_4"])
+@pytest.mark.parametrize("layout", ["split", "framed", "backdrop"])
+async def test_image_card_layout(tmp_path, fmt, layout):
+    from io import BytesIO
+
+    from PIL import Image
+    from playwright.async_api import async_playwright
+
+    from app.media.assets import store
+    from app.media.renderer import SIZES, capture_jobs, launch
+
+    color = (24, 103, 67)
+    square = BytesIO()
+    Image.new("RGB", (320, 320), color).save(square, format="PNG")
+    asset = store("leaf", square.getvalue())
+    project = {
+        "id": "leaf",
+        "topic": "叶脉观察手记",
+        "target_format": fmt,
+        "theme": "clean_light",
+    }
+    scene = {
+        "order_index": 2,
+        "template_type": "image_card",
+        "visual_payload": {
+            "image_asset": asset["asset_id"],
+            "layout": layout,
+            "heading": "从中央主脉到叶缘，追踪一片叶子的分支纹理",
+            "caption": "把叶片迎着窗光举起，沿着最粗的主脉找到第一处分叉，再用指尖比对两侧支脉的角度，记下它们在叶缘交汇的位置。",
+            "tag": "自然观察室 · 秋日野外笔记",
+        },
+    }
+    width, height = SIZES[fmt]
+    async with async_playwright() as pw, await launch(pw) as browser:
+        # Production capture runs FIT before saving the fitted HTML and PNG.
+        await capture_jobs(browser, project, [(tmp_path, scene)], 2)
+        with Image.open(tmp_path / "card.png") as card:
+            assert card.size == (width, height)
+            if layout == "split":
+                page = await browser.new_page(viewport={"width": width, "height": height})
+                await page.goto((tmp_path / "card.html").as_uri())
+                photo = page.locator(".split img")
+                assert await photo.evaluate("img => getComputedStyle(img).objectFit") == "cover"
+                box = await photo.bounding_box()
+                y = int(box["y"] + box["height"] / 2)
+                for fraction in (0.02, 0.5, 0.98):
+                    x = int(box["x"] + box["width"] * fraction)
+                    assert card.getpixel((x, y)) == color
