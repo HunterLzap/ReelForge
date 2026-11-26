@@ -5,6 +5,9 @@ import { optimistic } from "./optimistic";
 import type {
   TimelineDocument,
   TimelineOp,
+  Shot,
+  Turn,
+  Brief,
   Project,
   Skill,
   MediaAsset,
@@ -24,7 +27,17 @@ type ExportState = {
   result?: ExportResult;
   message?: string;
 };
+export interface Draft extends Brief {
+  shots: Shot[];
+  history: Turn[];
+}
 interface Studio {
+  draft: Draft | null;
+  railTab: string;
+  setRailTab: (tab: string) => void;
+  setDraft: (pid: string, draft: Draft) => void;
+  receiveMedia: (asset: MediaAsset) => void;
+  refreshMedia: (pid: string) => Promise<void>;
   modelCenter: "models" | "probe" | null;
   showModels: (view: "models" | "probe" | null) => void;
   acceptTimeline: (timeline: TimelineDocument) => void;
@@ -159,6 +172,22 @@ export const useStudio = create<Studio>((set, get) => {
     }
   }
   return {
+    draft: null,
+    railTab: "shots",
+    setRailTab: (railTab) => set({ railTab }),
+    setDraft: (pid, draft) => {
+      if (get().project?.id === pid) set({ draft });
+    },
+    receiveMedia: (asset) => {
+      if (get().project?.id === asset.project_id)
+        set({
+          media: [asset, ...get().media.filter((a) => a.id !== asset.id)],
+        });
+    },
+    async refreshMedia(pid) {
+      const media = await api.media(pid);
+      if (get().project?.id === pid) set({ media });
+    },
     modelCenter: null,
     showModels: (modelCenter) => set({ modelCenter }),
     acceptTimeline: (timeline) => {
@@ -217,6 +246,8 @@ export const useStudio = create<Studio>((set, get) => {
       stream?.close();
       seenRevision = -1;
       set({
+        draft: null,
+        railTab: "shots",
         project: null,
         timeline: null,
         pins: [],

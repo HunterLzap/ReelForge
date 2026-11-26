@@ -9,7 +9,9 @@ from starlette.exceptions import HTTPException
 
 from app.api import (
     assets,
+    director,
     external,
+    library,
     media,
     models,
     pipeline,
@@ -17,6 +19,7 @@ from app.api import (
     review_pins,
     scenes,
     skills,
+    sourcing,
     stream,
     system,
     timelines,
@@ -75,6 +78,9 @@ for module in (
     scenes,
     stream,
     external,
+    director,
+    library,
+    sourcing,
     system,
     assets,
     media,

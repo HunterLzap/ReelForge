@@ -1517,3 +1517,127 @@ progress {
 .subtitle-table {
   font-variant-numeric: tabular-nums;
 }
+
+.director-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+}
+.director-grid .card {
+  min-width: 0;
+}
+.director-controls,
+.topic-chips,
+.quality-flags,
+.material-search {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.director-controls label,
+.shot-edit small,
+.material-entry small {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.topic-chips > button:not(.btn) {
+  background: var(--bg-control);
+  border-radius: 16px;
+  padding: 5px 11px;
+  font-size: 12px;
+}
+.chat-transcript {
+  max-height: 36vh;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+}
+.chat-turn {
+  border-left: 2px solid var(--border-subtle);
+  padding: 4px 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.chat-turn small {
+  font-weight: 650;
+  color: var(--ink-muted);
+}
+.chat-turn.user {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.shot-edit,
+.material-entry {
+  border-top: 1px solid var(--border-subtle);
+  padding: 14px 0;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.shot-edit .btn {
+  justify-self: start;
+}
+.shot-edit .between {
+  gap: 8px;
+}
+.shot-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px;
+  gap: 10px;
+}
+.source-pill,
+.quality-flags span {
+  font-size: 12px;
+  white-space: nowrap;
+  border-radius: 12px;
+  padding: 3px 9px;
+  background: var(--bg-control);
+}
+.source-pill.local_matched {
+  background: #e6f6ee;
+  color: #166144;
+}
+.source-pill.web_fetched {
+  background: #eaf2fc;
+  color: #22558b;
+}
+.source-pill.motion_generated {
+  background: #f0edfa;
+  color: #644998;
+}
+.source-pill.placeholder,
+.quality-flags span {
+  background: #fff4dc;
+  color: #875516;
+}
+.materials {
+  padding-top: 4px;
+}
+.materials .tab-list {
+  font-size: 12px;
+}
+.material-entry {
+  overflow-wrap: anywhere;
+}
+.material-entry img {
+  max-height: 110px;
+  max-width: 100%;
+  border-radius: 4px;
+  object-fit: contain;
+}
+.material-entry a {
+  color: var(--accent);
+  font-size: 12px;
+}
+.material-search .input,
+.material-search select {
+  flex: 1;
+  min-width: 0;
+}
+.materials > small {
+  color: var(--ink-muted);
+}
+@media (max-width: 840px) {
+  .director-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

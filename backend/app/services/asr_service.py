@@ -11,13 +11,13 @@ import httpx
 from fastapi import HTTPException
 
 from app.core.auth import project_dir, resolve_safe_path
-from app.core.config import settings
 from app.db import repository as repo
 from app.media.assembler import command
 from app.media.limits import slot
 from app.schemas.timeline import Clip
 from app.schemas.transcript import TranscriptDocument, TranscriptSegment, WordToken
-from app.services.model_manager import config_guard, credential, model_directory, slots
+from app.services.model_manager import credential, endpoint, model_directory
+from app.services.model_router import router
 
 FILLERS = {"嗯", "啊", "那个", "就是", "然后", "呃"}
 
@@ -141,7 +141,7 @@ def local_segments(config, wav, hotwords):
 
 def cloud_segments(config, wav, hotwords):
     key = credential(config)
-    if not key:
+    if config.api_key_env and not key:
         raise HTTPException(422, "缺少 ASR 凭据环境变量 " + config.api_key_env)
     if config.provider == "dashscope":
         from dashscope.audio.asr import Recognition
@@ -162,12 +162,12 @@ def cloud_segments(config, wav, hotwords):
             ]
             for s in result.get_sentence() or []
         ]
-    if config.provider not in {"whisper_api", "openai"}:
+    if config.provider not in {"whisper_api", "openai", "openai_api", "magpie"}:
         raise HTTPException(422, "该引擎未提供词级 ASR")
     with wav.open("rb") as audio:
         res = httpx.post(
-            (config.base_url or "https://api.openai.com/v1") + "/audio/transcriptions",
-            headers={"Authorization": "Bearer " + key},
+            endpoint(config) + "/audio/transcriptions",
+            headers={"Authorization": "Bearer " + key} if key else {},
             files={"file": ("speech.wav", audio, "audio/wav")},
             data={
                 "model": config.model,
@@ -266,6 +266,10 @@ def recognize_clip(path, clip, config, mock, hotwords):
 
 
 async def transcribe(timeline, asset_id, hotwords):
+    return await router.transcribe(timeline, asset_id, hotwords)
+
+
+async def transcribe_with(config, timeline, asset_id, hotwords):
     pid = timeline.project_id
     videos = [
         c
@@ -291,11 +295,7 @@ async def transcribe(timeline, asset_id, hotwords):
             )
         ]
     path = resolve_safe_path(project_dir(pid), asset["rel_path"])
-    config = (await slots())["asr_speech"]
-    if not config.enabled:
-        raise HTTPException(422, "ASR 槽位已停用")
-    config_guard(config)
-    mock = settings().mock_llm
+    mock = config.provider == "mock"
     doc = TranscriptDocument(
         asset_id=asset_id,
         engine="mock" if mock else config.model,

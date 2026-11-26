@@ -77,7 +77,10 @@ export function StudioView({
           </Button>
           <StoragePill />
           <CommandButton open={palette} />
-          <Button variant="primary" onClick={() => setStage("delivery")}>
+          <Button
+            variant={stage === "plan" ? "default" : "primary"}
+            onClick={() => setStage("delivery")}
+          >
             <Download />
             导出交付
           </Button>

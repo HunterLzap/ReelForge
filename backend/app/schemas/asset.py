@@ -23,3 +23,10 @@ class MediaAsset(BaseModel):
     license: str | None
     mime_type: str
     created_at: str
+
+
+EXTENSIONS = {
+    "video": {"mp4", "mov", "webm"},
+    "image": {"png", "jpg", "jpeg", "webp"},
+    "audio": {"mp3", "wav", "m4a"},
+}

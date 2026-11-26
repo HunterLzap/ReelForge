@@ -41,6 +41,17 @@ export function CommandPalette({
                   {stageNames[k]}
                 </Command.Item>
               ))}
+              <Command.Item onSelect={action(() => s.setStage("plan"))}>
+                AI 导演对话与分镜
+              </Command.Item>
+              <Command.Item
+                onSelect={action(() => {
+                  s.setRailTab("media");
+                  s.setStage("edit");
+                })}
+              >
+                打开素材库与联网采集
+              </Command.Item>
               <Command.Item onSelect={action(s.undo)}>撤销编辑</Command.Item>
               <Command.Item onSelect={action(s.redo)}>重做编辑</Command.Item>
               <Command.Item

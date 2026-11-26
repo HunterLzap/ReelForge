@@ -6,6 +6,10 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import {
+  NewsCard,
+  isNewsTemplate,
+} from "../../../skills/ai-news-montage/components/NewsCard";
 import { EditorialCard } from "../../../skills/motion-editorial/components/EditorialCard";
 import type { Clip, SubtitleStyle } from "../types";
 import { screenCamera } from "./ScreenFrame";
@@ -28,6 +32,18 @@ export function Overlay({
       annotations,
       f + Math.round((clip.start_ms * fps) / 1000),
       fps,
+    );
+  if (clip.kind === "placeholder") return <PlaceholderCard clip={clip} />;
+  if (isNewsTemplate(clip.component_id || clip.kind))
+    return (
+      <NewsCard
+        template={clip.component_id || clip.kind}
+        content={{ ...clip.props, src: src || clip.props?.src }}
+        video={
+          clip.props?.media_type === "video" ||
+          ["video_clip", "broll_video"].includes(clip.kind)
+        }
+      />
     );
   const box = clip.target_bbox ||
     clip.rect ||
@@ -62,7 +78,8 @@ export function Overlay({
         borderRadius: clip.border_radius ?? 16,
         boxShadow: spotlight ? "0 0 0 300vmax rgba(0,0,0,.55)" : undefined,
         border: spotlight ? "4px solid #f4d199" : undefined,
-        backgroundColor: spotlight || cursor || src ? "transparent" : "#16282eef",
+        backgroundColor:
+          spotlight || cursor || src ? "transparent" : "#16282eef",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -217,6 +234,7 @@ export function Caption({ clip, style }: { clip: Clip; style: SubtitleStyle }) {
   );
 }
 export function PlaceholderCard({ clip }: { clip: Clip }) {
+  const { width, height } = useVideoConfig();
   return (
     <AbsoluteFill
       style={{
@@ -224,11 +242,22 @@ export function PlaceholderCard({ clip }: { clip: Clip }) {
         alignItems: "center",
         background: "#27353e",
         color: "#eadcc4",
-        fontSize: 54,
+        fontSize: Math.min(width, height) * 0.047,
         padding: "9%",
         textAlign: "center",
       }}
     >
+      <small
+        style={{
+          border: "2px dashed #91a7af",
+          borderRadius: 12,
+          padding: ".25em .8em",
+          marginBottom: "1em",
+          fontSize: ".65em",
+        }}
+      >
+        待补全占位
+      </small>
       {clip.prompt_hint || clip.text || "待补充素材"}
     </AbsoluteFill>
   );

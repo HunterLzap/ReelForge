@@ -1,5 +1,6 @@
 import asyncio
 import re
+from contextlib import asynccontextmanager
 
 import httpx
 import trafilatura
@@ -77,8 +78,9 @@ def extract_passages(text):
     return "\n".join(p for _, p in sorted(selected))[:3000]
 
 
-async def material_text(url):
-    """Fetch a bounded public HTTP resource. Pin each hop to a validated IP."""
+@asynccontextmanager
+async def public_stream(url):
+    """Pin every redirect and the TLS server name to its validated public origin."""
     import ipaddress
     import socket
 
@@ -103,13 +105,19 @@ async def material_text(url):
                     original = original.join(response.headers["location"])
                     continue
                 response.raise_for_status()
-                body = bytearray()
-                async for chunk in response.aiter_bytes(65536):
-                    body.extend(chunk)
-                    if len(body) > 2_000_000:
-                        break
-                return await asyncio.to_thread(trafilatura.extract, bytes(body))
-    return None
+                yield response, str(original)
+                return
+    raise ValueError("网页重定向过多")
+
+
+async def material_text(url):
+    async with public_stream(url) as (response, _):
+        body = bytearray()
+        async for chunk in response.aiter_bytes(65536):
+            body.extend(chunk)
+            if len(body) > 2_000_000:
+                break
+        return await asyncio.to_thread(trafilatura.extract, bytes(body))
 
 
 async def materials(text, offline):

@@ -1,0 +1,113 @@
+{
+  "id": "ai-news-montage",
+  "name": "AI 资讯混剪",
+  "version": "1.0.0",
+  "description": "用新闻头条、来源条、滚动快讯与画中画编排资讯短片。",
+  "supported_aspects": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "3:4"
+  ],
+  "inputs": {
+    "component_id": {
+      "type": "string",
+      "enum": [
+        "news_headline",
+        "lower_third",
+        "ticker_banner",
+        "chapter_card",
+        "pip_commentary"
+      ]
+    },
+    "props": {
+      "type": "object"
+    }
+  },
+  "templates": [
+    {
+      "id": "news_headline",
+      "name": "新闻头条",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "lower_third",
+      "name": "下三分之一字幕条",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "ticker_banner",
+      "name": "滚动快讯",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "chapter_card",
+      "name": "章节卡",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "pip_commentary",
+      "name": "画中画解读",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "src": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

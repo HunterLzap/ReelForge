@@ -104,3 +104,17 @@ async def init():
         ):
             if name not in existing:
                 await conn.execute(f"ALTER TABLE projects ADD COLUMN {name} {datatype}")
+
+        library = {
+            c["name"]
+            for c in await conn.execute_fetchall("PRAGMA table_info(asset_library)")
+        }
+        for name, datatype in (
+            ("size_bytes", "INTEGER"),
+            ("mtime_ns", "INTEGER"),
+            ("fps", "REAL"),
+        ):
+            if name not in library:
+                await conn.execute(
+                    f"ALTER TABLE asset_library ADD COLUMN {name} {datatype}"
+                )

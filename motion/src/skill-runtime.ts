@@ -5,6 +5,7 @@ export type { ReactNode } from "react";
 export {
   AbsoluteFill,
   Img,
+  OffthreadVideo,
   interpolate,
   spring,
   useCurrentFrame,

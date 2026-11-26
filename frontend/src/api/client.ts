@@ -1,4 +1,10 @@
 import type {
+  Brief,
+  Shot,
+  Turn,
+  LibraryItem,
+  SourceHit,
+  PasteInput,
   Project,
   ExportResult,
   PurgeScope,
@@ -83,6 +89,52 @@ function request<T>(path: string, method = "GET", data?: unknown) {
   return json<T>("/api/projects" + path, method, data);
 }
 export const api = {
+  directorChat: (
+    pid: string,
+    body: Brief & { message: string; history: Turn[]; web_enabled: boolean },
+  ) =>
+    request<{ reply: string; shots: Shot[]; base_revision: number }>(
+      "/" + pid + "/director/chat",
+      "POST",
+      body,
+    ),
+  directorPlan: (pid: string, body: Brief & { shots: Shot[] }) =>
+    request<TimelineDocument>("/" + pid + "/director/plan", "POST", body),
+  libraryIndex: (path: string, aspect: Aspect) =>
+    json<{ items: LibraryItem[]; errors: { path: string; message: string }[] }>(
+      "/api/library/index",
+      "POST",
+      { path, aspect },
+    ),
+  librarySearch: (q: string) =>
+    json<LibraryItem[]>("/api/library/search?q=" + encodeURIComponent(q)),
+  libraryImport: (pid: string, id: string) =>
+    request<MediaAsset>("/" + pid + "/library/" + id + "/import", "POST"),
+  sourceSearch: (pid: string, q: string, kind: string) =>
+    request<{ results: SourceHit[] }>("/" + pid + "/sourcing/search", "POST", {
+      q,
+      kind,
+    }),
+  sourceFetch: (
+    pid: string,
+    body: {
+      url: string;
+      license?: string;
+      media_url?: string;
+      use_browser?: boolean;
+    },
+  ) =>
+    request<{ asset: MediaAsset; strategy: string }>(
+      "/" + pid + "/sourcing/fetch",
+      "POST",
+      body,
+    ),
+  paste: (pid: string, body: PasteInput) =>
+    request<{ asset: MediaAsset; timeline: TimelineDocument | null }>(
+      "/" + pid + "/sourcing/paste",
+      "POST",
+      body,
+    ),
   probe: () => json<Hardware>("/api/system/probe", "POST"),
   models: () => json<ModelCenter>("/api/models"),
   saveModel: (slot: Slot, config: ModelConfig) =>

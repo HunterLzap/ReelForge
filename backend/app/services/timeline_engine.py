@@ -14,6 +14,7 @@ from app.db.database import connection
 from app.schemas.timeline import (
     FORMATS,
     AddClip,
+    ApplyPlan,
     Clip,
     DeleteClip,
     Reorder,
@@ -80,6 +81,18 @@ def ripple(items, start, end):
 
 def apply(doc, op):
     tracks = doc["tracks"]
+    if isinstance(op, ApplyPlan):
+        doc.update(
+            tracks=op.tracks.model_dump(),
+            skill_id=op.skill_id,
+            aspect_ratio=op.aspect_ratio,
+            bgm=None,
+        )
+        doc.pop("resolution", None)
+        doc["export"].update(aspect_ratio=op.aspect_ratio)
+        doc["export"].pop("resolution", None)
+        doc["meta"].pop("transcript_id", None)
+        return
     if isinstance(op, SetBgm):
         doc["bgm"] = op.bgm
         return
@@ -229,9 +242,11 @@ class TimelineEngine:
     async def get(self, pid):
         return await self._transaction(pid)
 
-    async def patch(self, pid, request: TimelinePatchRequest, *, transcript=None):
+    async def patch(
+        self, pid, request: TimelinePatchRequest, *, transcript=None, media_record=None
+    ):
         return await self._transaction(
-            pid, "patch", request.base_revision, request, transcript
+            pid, "patch", request.base_revision, request, transcript, media_record
         )
 
     async def undo(self, pid, base_revision=None):
@@ -241,7 +256,13 @@ class TimelineEngine:
         return await self._transaction(pid, "redo", base_revision)
 
     async def _transaction(
-        self, pid, action=None, base=None, request=None, transcript=None
+        self,
+        pid,
+        action=None,
+        base=None,
+        request=None,
+        transcript=None,
+        media_record=None,
     ):
         async with connection() as db:
             await db.execute("BEGIN IMMEDIATE")
@@ -279,6 +300,8 @@ class TimelineEngine:
                         doc = TimelineDocument.model_validate(values)
                     except (ValueError, TypeError) as exc:
                         raise HTTPException(422, str(exc)) from exc
+                    if media_record is not None:
+                        await repo.save_media(db, media_record)
                     if transcript is not None:
                         doc.meta["transcript_id"] = await repo.save_transcript(
                             db, pid, transcript

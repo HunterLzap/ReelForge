@@ -23,6 +23,7 @@ type Point = {
   step_label?: string;
 };
 export interface CardProps {
+  media_type?: "image" | "video";
   title?: string;
   heading?: string;
   tag?: string;

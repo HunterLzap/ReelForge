@@ -1,3 +1,4 @@
+import { useMaterialPaste } from "./useMaterialPaste";
 import { SubtitleTable } from "./SubtitleTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { useEffect, useRef, useState } from "react";
@@ -78,6 +79,7 @@ function Transport({
   );
 }
 export function EditStage({ shortcuts }: { shortcuts: boolean }) {
+  useMaterialPaste(shortcuts);
   const doc = useStudio((s) => s.timeline)!;
   const player = useRef<PlayerRef>(null),
     source = useRef<HTMLDivElement>(null);

@@ -10,6 +10,10 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import {
+  NewsCard,
+  isNewsTemplate,
+} from "../../skills/ai-news-montage/components/NewsCard";
 import { EditorialCard } from "../../skills/motion-editorial/components/EditorialCard";
 import { Caption, Overlay, PlaceholderCard } from "./components/Layers";
 import { ScreenFrame, screenCamera } from "./components/ScreenFrame";
@@ -62,6 +66,18 @@ function Visual({
   let content;
   if (clip.kind === "placeholder" || clip.source_state === "placeholder")
     content = <PlaceholderCard clip={clip} />;
+  else if (isNewsTemplate(clip.component_id || clip.kind))
+    content = (
+      <Sequence from={-offset}>
+        <NewsCard
+          template={clip.component_id || clip.kind}
+          content={{ ...clip.props, src: src || mediaUrl(clip.props?.src) }}
+          video={
+            clip.props?.media_type === "video" || clip.kind === "video_clip"
+          }
+        />
+      </Sequence>
+    );
   else if (clip.kind === "motion_card")
     content = (
       <Sequence from={-offset}>

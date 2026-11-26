@@ -66,10 +66,18 @@ function SlotRow({
       draft.provider,
       ...presets.map((p) => p.id),
       ...(slot === "asr_speech"
-        ? ["whisper_api", "sherpa_onnx", "faster_whisper"]
+        ? [
+            "whisper_api",
+            "openai_api",
+            "magpie",
+            "mcp",
+            "sherpa_onnx",
+            "faster_whisper",
+          ]
         : slot === "tts_voice"
-          ? ["edge_tts"]
-          : ["ollama"]),
+          ? ["edge_tts", "openai_api", "magpie", "mcp"]
+          : ["ollama", "openai_api", "magpie", "agent_cli", "mcp"]),
+      "mock",
     ]),
   );
   function provider(id: string) {

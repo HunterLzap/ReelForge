@@ -150,7 +150,9 @@ class Target(OnTrack):
 
 class UpdateClip(Target):
     op: Literal["update_clip"]
-    patch: dict = Field(validation_alias=AliasChoices("patch", "changes", "fields", "updates"))
+    patch: dict = Field(
+        validation_alias=AliasChoices("patch", "changes", "fields", "updates")
+    )
 
 
 class DeleteClip(Target):
@@ -195,8 +197,16 @@ class SetExportSpec(Operation):
     )
 
 
+class ApplyPlan(Operation):
+    op: Literal["apply_plan"]
+    tracks: Tracks
+    skill_id: str
+    aspect_ratio: Aspect
+
+
 TimelineOp = Annotated[
-    AddClip
+    ApplyPlan
+    | AddClip
     | UpdateClip
     | DeleteClip
     | SplitClip

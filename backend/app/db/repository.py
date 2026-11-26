@@ -281,3 +281,13 @@ async def get_latest_transcript(pid, timeline=None):
         if result
         else None
     )
+
+
+async def save_media(db, record):
+    await db.execute(
+        """INSERT INTO media_assets(id,project_id,kind,filename,rel_path,proxy_rel_path,sha256,size_bytes,
+        mime_type,source_type,duration_ms,width,height,fps,source_url,license) VALUES(
+        :id,:project_id,:kind,:filename,:rel_path,:proxy_rel_path,:sha256,:size_bytes,:mime_type,
+        :source_type,:duration_ms,:width,:height,:fps,:source_url,:license)""",
+        record,
+    )

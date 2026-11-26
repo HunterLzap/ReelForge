@@ -114,9 +114,7 @@ export interface ExportResult {
 export type PurgeScope = "temp" | "proxies" | "all_cache" | "exports";
 export type Stage = "plan" | "edit" | "delivery";
 export type Selection =
-  | { track: TrackName; id: string }
-  | { pin: string }
-  | null;
+  { track: TrackName; id: string } | { pin: string } | null;
 
 export type IssueKind = "silence" | "filler" | "retake";
 export interface WordToken {
@@ -225,4 +223,55 @@ export interface DownloadTask {
   total_bytes: number;
   error?: string;
   mock: boolean;
+}
+
+export type SourceState =
+  "local_matched" | "web_fetched" | "motion_generated" | "placeholder";
+export interface Shot {
+  id: string;
+  title: string;
+  narration: string;
+  visual_query: string;
+  duration_ms: number;
+  source_state: SourceState;
+  asset_id?: string | null;
+  source_url?: string | null;
+  component_id?: string | null;
+  props?: Clip["props"];
+  placeholder_hint?: string | null;
+}
+export interface Turn {
+  role: "user" | "assistant";
+  content: string;
+}
+export interface Brief {
+  skill_id: string;
+  aspect_ratio: Aspect;
+  base_revision?: number;
+}
+export interface LibraryItem {
+  id: string;
+  filename: string;
+  rel_path: string;
+  kind: MediaAsset["kind"];
+  thumbnail_url: string | null;
+  quality_flags: string[];
+  tags: string[];
+  caption: string;
+}
+export interface SourceHit {
+  thumbnail_url?: string;
+  url: string;
+  media_url?: string;
+  title: string;
+  license: string;
+  kind: string;
+}
+export interface PasteInput {
+  image_data_url?: string;
+  url?: string;
+  filename?: string;
+  slot_clip_id?: string;
+  track?: TrackName;
+  base_revision?: number;
 }

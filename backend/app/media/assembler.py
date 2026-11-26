@@ -264,8 +264,11 @@ async def export_timeline(doc):
                 ]
             )
             info = await asyncio.to_thread(probe, final)
-            if not info["width"] or info["duration_ms"] <= 0:
-                raise RuntimeError("导出文件没有有效视频流")
+            if (info["width"], info["height"]) != (
+                doc.resolution.width,
+                doc.resolution.height,
+            ) or info["duration_ms"] <= 0:
+                raise RuntimeError("导出视频规格与时间轴不符")
             final.replace(output / "final.mp4")
     return {
         **info,

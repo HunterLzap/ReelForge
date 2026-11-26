@@ -287,13 +287,30 @@ def credential(config):
     )
 
 
+def endpoint(config):
+    if config.provider == "ollama":
+        return (config.base_url or "http://127.0.0.1:11434").removesuffix("/v1") + "/v1"
+    return config.base_url or PRESETS.get(config.provider, PRESETS["openai"])[1]
+
+
 async def connectivity(slot):
     config = (await slots())[slot]
     if not config.enabled:
         return {"ok": False, "message": "槽位已停用"}
     config_guard(config)
-    if settings().mock_llm:
+    if settings().mock_llm or config.provider == "mock":
         return {"ok": True, "message": "Mock 连接成功"}
+    if config.provider == "mcp":
+        return {"ok": True, "message": "已配置外部 MCP 转交", "metadata": config.extra}
+    if config.provider == "agent_cli":
+        from app.core.llm_client import cli_args
+
+        cfg = settings()
+        if config.model in {"codex", "claude", "custom"}:
+            cfg = cfg.model_copy(update={"agent_cli_preset": config.model})
+        args = cli_args(cfg)
+        ok = bool(args and shutil.which(args[0]))
+        return {"ok": ok, "message": "已找到 CLI" if ok else "找不到配置的 CLI"}
     if config.provider in {"sherpa_onnx", "faster_whisper"}:
         folder = model_directory(config.model)
         ok = find_spec(config.provider) is not None and all(
@@ -319,7 +336,7 @@ async def connectivity(slot):
             return {"ok": False, "message": "未设置 " + config.api_key_env}
         headers["Authorization"] = "Bearer " + key
     url = (
-        config.base_url + "/models"
+        endpoint(config) + "/models"
         if config.provider != "ollama"
         else (config.base_url or "http://127.0.0.1:11434").removesuffix("/v1")
         + "/api/tags"

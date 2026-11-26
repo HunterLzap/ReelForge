@@ -1,5 +1,4 @@
 import asyncio
-import mimetypes
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -14,15 +13,10 @@ from app.core.config import settings
 from app.db import repository as repo
 from app.media import proxy
 from app.media.limits import project_files
-from app.schemas.asset import MediaAsset
-from app.services.uploads import staged_upload
+from app.schemas.asset import EXTENSIONS, MediaAsset
+from app.services.uploads import register_media, staged_upload
 
 router = APIRouter(prefix="/api")
-EXTENSIONS = {
-    "video": {"mp4", "mov", "webm"},
-    "audio": {"mp3", "wav", "m4a"},
-    "image": {"png", "jpg", "jpeg", "webp"},
-}
 
 
 @router.post("/media/upload", response_model=MediaAsset, status_code=201)
@@ -64,29 +58,22 @@ async def upload(
                     await proxy.generate(tmp, proxy_dest)
                     proxy_rel = str(proxy_dest.relative_to(root))
                 tmp.replace(dest)
-                await repo.execute(
-                    "INSERT INTO media_assets(id,project_id,kind,filename,rel_path,proxy_rel_path,sha256,size_bytes,"
-                    "mime_type,source_type,duration_ms,width,height,fps) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    aid,
+                return await register_media(
                     project_id,
+                    aid,
                     kind,
                     name,
                     relative,
-                    proxy_rel,
+                    metadata,
                     digest,
                     size,
-                    mimetypes.guess_type(name)[0] or "application/octet-stream",
                     "upload",
-                    metadata["duration_ms"],
-                    metadata["width"],
-                    metadata["height"],
-                    metadata["fps"],
+                    proxy_rel=proxy_rel,
                 )
             except BaseException:
                 dest.unlink(missing_ok=True)
                 proxy_dest.unlink(missing_ok=True)
                 raise
-        return (await repo.rows("SELECT * FROM media_assets WHERE id=?", aid))[0]
 
 
 @router.get("/projects/{pid}/media", response_model=list[MediaAsset])

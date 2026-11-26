@@ -4,7 +4,7 @@ from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -36,7 +36,11 @@ class Settings(BaseSettings):
     )
     access_token: str = ""
     media_origins: list[str] = []
-    library_root: Path = ROOT / "library"
+    library_root: Path | None = None
+    firecrawl_api_key: str = ""
+    jina_api_key: str = ""
+    pexels_api_key: str = ""
+    pixabay_api_key: str = ""
     disk_limit_gb: float = Field(40, gt=0)
     upload_max_mb: int = Field(2000, gt=0)
     proxy_profile: Literal["auto", "720p_fast", "none"] = "auto"
@@ -93,10 +97,19 @@ class Settings(BaseSettings):
     def effective_ffmpeg_preset(self):
         return "veryfast"
 
+    @field_validator("library_root", mode="before")
+    @classmethod
+    def empty_library(cls, value):
+        return None if value == "" else value
+
     @model_validator(mode="after")
     def paths(self):
-        self.library_root = (ROOT / self.library_root).resolve()
         self.workspace_dir = (ROOT / self.workspace_dir).resolve()
+        self.library_root = (
+            (ROOT / self.library_root)
+            if self.library_root
+            else self.workspace_dir / "_library"
+        )
         self.database_path = (
             (ROOT / self.database_path).resolve()
             if self.database_path

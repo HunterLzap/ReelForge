@@ -9,8 +9,8 @@ from pathlib import Path
 import edge_tts
 import espeakng_loader
 
-from app.core.config import settings
 from app.media.assembler import duration, ffmpeg
+from app.services.model_router import router
 
 # eSpeak owns one synthesizer per process.
 
@@ -219,20 +219,22 @@ def subtitles(folder, cues, fmt, style="pill_dark"):
     (folder / "subs.srt").write_text("\n".join(srt), encoding="utf-8")
 
 
-async def narrate(
-    folder, text, voice, fmt="video_16_9", speech_rate="+0%", subtitle_style="pill_dark"
-):
+async def synthesize(route, folder, text, voice, speech_rate):
     events = []
-    if settings().mock_llm:
+    if route.provider == "mock":
         await asyncio.to_thread(mock_voice, folder, text, speech_rate)
+    elif route.provider != "edge_tts":
+        async with (
+            router.client(route) as client,
+            client.audio.speech.with_streaming_response.create(
+                model=route.model,
+                voice=route.extra.get("voice", "alloy"),
+                input=text,
+                speed=1 + int(speech_rate[:-1]) / 100,
+            ) as response,
+        ):
+            await response.stream_to_file(folder / "audio.mp3")
     else:
-        from app.services.model_manager import slots
-
-        route = (await slots())["tts_voice"]
-        if not route.enabled:
-            raise ValueError("语音合成槽位已停用")
-        if route.provider != "edge_tts":
-            raise ValueError("当前旁白引擎使用 edge_tts，请在模型中心选择支持的语音")
         async with asyncio.timeout(180):
             with (folder / "audio.mp3").open("wb") as out:
                 async for item in edge_tts.Communicate(
@@ -248,6 +250,13 @@ async def narrate(
                                 item["text"],
                             )
                         )
+    return events
+
+
+async def narrate(
+    folder, text, voice, fmt="video_16_9", speech_rate="+0%", subtitle_style="pill_dark"
+):
+    events = await router.synthesize(folder, text, voice, speech_rate)
     ms = await asyncio.to_thread(duration, folder / "audio.mp3")
     subtitles(
         folder,
