@@ -1,84 +1,116 @@
-export type Format = "video_16_9" | "video_9_16" | "cards_3_4";
+import type {
+  TimelineDocument,
+  TrackName,
+  Clip,
+  Rect,
+  Music,
+  SubtitleStyle,
+} from "@motion/types";
+export type { TimelineDocument, TrackName, Clip, Rect } from "@motion/types";
+export type Aspect = TimelineDocument["aspect_ratio"];
 export interface Project {
   id: string;
-  topic: string;
-  execution_mode: "api" | "agent_cli" | "mcp";
-  target_format: Format;
-  theme: string;
-  voice: string;
-  auto_approve: boolean;
   status: string;
-  error_message: string | null;
+  topic: string;
   updated_at: string;
-  total_tokens: number;
-  estimated_cost_cny: number;
+  created_at: string;
+  skill_id?: string | null;
+  aspect_ratio?: Aspect | null;
+  timeline_revision?: number | null;
+  seed_materials?: string;
 }
-export interface Scene {
+export interface Skill {
   id: string;
-  order_index: number;
-  template_type: string;
-  narration: string;
-  visual_payload: Record<string, unknown>;
-  source_ids: string[];
-  duration_ms: number;
-  content_hash: string | null;
-  render_status: string;
+  name: string;
+  description: string;
+  version: string;
+  supported_aspects: Aspect[];
+  inputs: Record<string, unknown>;
+  templates: {
+    id: string;
+    name: string;
+    props_schema: Record<string, unknown>;
+  }[];
 }
-export interface Source {
+export interface Revision {
+  revision: number;
+  op_summary: string;
+  author: string;
+  created_at: string;
+}
+export type TimelineOp =
+  | { op: "add_clip"; track: TrackName; clip: Clip }
+  | {
+      op: "update_clip";
+      track: TrackName;
+      clip_id: string;
+      patch: Partial<Clip>;
+    }
+  | { op: "split_clip"; track: TrackName; clip_id: string; at_ms: number }
+  | { op: "ripple_delete"; track: TrackName | "all"; clip_id: string }
+  | { op: "set_export_spec"; export: TimelineDocument["export"] }
+  | { op: "set_bgm"; bgm: Music | null }
+  | { op: "set_subtitle_style"; subtitle_style: SubtitleStyle };
+export interface PinCreate {
+  time_ms: number;
+  bbox: Rect | null;
+  note: string;
+  revision: number;
+  track?: TrackName | null;
+  clip_id?: string | null;
+  frame_data_url?: string;
+}
+export interface ReviewPin extends Omit<PinCreate, "frame_data_url"> {
+  created_at: string;
+  frame_path: string;
   id: string;
-  title: string;
+  project_id: string;
+  status: "open" | "resolved" | "dismissed";
+  frame_url: string;
+  resolved_by_revision: number | null;
+}
+export interface MediaAsset {
+  id: string;
+  project_id: string;
+  kind: "video" | "image" | "audio";
+  filename: string;
+  path: string;
+  proxy_path: string | null;
+  duration_ms: number | null;
+  size_bytes: number;
+  width: number | null;
+  height: number | null;
+  mime_type: string;
+  fps: number | null;
+  sha256: string;
+  source_type: string;
+  source_url: string | null;
+  license: string | null;
+  created_at: string;
+}
+export interface StorageInfo {
+  workspace_bytes: number;
+  pins_bytes: number;
+  models_bytes: number;
+  project_breakdown: Record<string, number>;
+  used_bytes: number;
+  disk_limit_bytes: number;
+  proxies_bytes: number;
+  exports_bytes: number;
+  usage_ratio: number;
+  status: "ok" | "warning" | "critical";
+}
+
+export interface ExportResult {
+  path: string;
+  revision: number;
   url: string;
-  snippet: string;
-  credibility_note: string;
+  width: number;
+  height: number;
+  fps: number;
+  duration_ms: number;
 }
-export interface Detail extends Project {
-  research: {
-    outline: string[];
-    key_facts?: { claim: string; source_ids: string[] }[];
-    data_points?: { claim: string; source_ids: string[] }[];
-  } | null;
-  fact_check: {
-    approved: boolean;
-    summary: string;
-    issues: string[];
-    checks?: { claim: string; source: string; verdict: string }[];
-    follow_up_queries?: string[];
-  } | null;
-  scenes: Scene[];
-  sources: Source[];
-  logs: {
-    id: number;
-    stage_name: string;
-    message: string;
-    created_at: string;
-  }[];
-  stage_runs: {
-    stage_name: string;
-    duration_ms: number;
-    status: string;
-    summary: string;
-  }[];
-}
-export const formats: Record<Format, string> = {
-  video_16_9: "16:9 横屏视频",
-  video_9_16: "9:16 竖屏视频",
-  cards_3_4: "3:4 图文卡片",
-};
-export const states: Record<string, string> = {
-  PENDING: "待启动",
-  RESEARCHING: "采编中",
-  FACT_CHECKING: "核查中",
-  WAITING_OUTLINE: "待确认大纲",
-  DIRECTING: "分镜设计中",
-  WAITING_STORYBOARD: "待确认分镜",
-  RENDERING: "渲染中",
-  ASSEMBLING: "合成中",
-  COMPLETED: "已完成",
-  CANCELLED: "已中止",
-  FAILED: "运行失败",
-};
-export type Act = (
-  path: string,
-  method?: string,
-  data?: unknown,
-) => Promise<boolean>;
+export type PurgeScope = "temp" | "proxies" | "all_cache" | "exports";
+export type Stage = "plan" | "edit" | "delivery";
+export type Selection =
+  { track: TrackName; id: string } | { pin: string } | null;

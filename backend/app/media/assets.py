@@ -1,6 +1,7 @@
 import hashlib
-import io
 import re
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from PIL import Image
 
@@ -24,24 +25,32 @@ def asset_path(pid, name):
 def store(pid, data):
     if len(data) > LIMIT:
         raise ValueError("图片超过 10 MB")
-    try:
-        with Image.open(io.BytesIO(data), formats=list(FORMATS)) as img:
-            ext = FORMATS[img.format]
-            if img.width * img.height > 40_000_000:
-                raise ValueError("图片像素过大")
-            img.verify()
-        with Image.open(io.BytesIO(data)) as img:
-            img.load()
-    except (OSError, Image.DecompressionBombError) as exc:
-        raise ValueError("请上传有效的 PNG、JPEG 或 WebP 图片") from exc
-    name = hashlib.sha256(data).hexdigest() + "." + ext
     directory = settings().workspace_dir / pid / "assets"
     if directory.resolve() != directory:
         raise ValueError("无效的素材目录")
     directory.mkdir(parents=True, exist_ok=True)
-    temp = directory / (name + ".tmp")
-    temp.write_bytes(data)
-    temp.replace(directory / name)
+    with NamedTemporaryFile(dir=directory, suffix=".tmp", delete=False) as tmp:
+        tmp.write(data)
+    path = Path(tmp.name)
+    try:
+        return store_file(pid, path, hashlib.sha256(data).hexdigest())
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def store_file(pid, path, digest):
+    try:
+        with Image.open(path, formats=list(FORMATS)) as img:
+            ext = FORMATS[img.format]
+            if img.width * img.height > 40_000_000:
+                raise ValueError("图片像素过大")
+            img.verify()
+        with Image.open(path) as img:
+            img.load()
+    except (OSError, Image.DecompressionBombError) as exc:
+        raise ValueError("请上传有效的 PNG、JPEG 或 WebP 图片") from exc
+    name = digest + "." + ext
+    path.replace(path.parent / name)
     return {"asset_id": name, "url": f"/workspace/{pid}/assets/{name}"}
 
 

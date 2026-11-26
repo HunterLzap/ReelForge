@@ -12,22 +12,32 @@ from app.db.database import init
 from app.main import app
 from app.schemas.research import Evidence, SourceItem
 from app.schemas.storyboard import SceneItem, StoryboardScript
+from app.schemas.timeline import TimelineOp
 
 mcp = FastMCP("ReelForge")
 Id = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]
 
 
-async def request(method, path, body=None, files=None):
-    url = settings().reelforge_api_base.rstrip("/") + "/api/projects" + path
+async def request(method, path, body=None, files=None, *, prefix="/api/projects"):
+    url = settings().reelforge_api_base.rstrip("/") + prefix + path
+    headers = (
+        {"Authorization": "Bearer " + settings().access_token}
+        if settings().access_token
+        else {}
+    )
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(None, connect=2), trust_env=False
         ) as client:
-            result = await client.request(method, url, json=body, files=files)
+            result = await client.request(
+                method, url, json=body, files=files, headers=headers
+            )
     except httpx.ConnectError:
         await init()
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app)) as client:
-            result = await client.request(method, url, json=body, files=files)
+            result = await client.request(
+                method, url, json=body, files=files, headers=headers
+            )
     if result.is_error:
         raise ValueError(f"HTTP {result.status_code} {result.text}")
     return result.json()
@@ -201,6 +211,59 @@ async def clone_project(
 async def cancel_project(project_id: Id):
     """停止 Web 工作台正在执行的任务。"""
     return await request("POST", f"/{project_id}/cancel")
+
+
+@mcp.tool()
+async def list_skills():
+    """列出已安装的编导技能与可用动效模板。"""
+    return await request("GET", "/skills", prefix="/api")
+
+
+@mcp.tool()
+async def get_timeline(project_id: Id):
+    """读取工程的五轨时间轴与当前修订号。"""
+    return await request("GET", f"/{project_id}/timeline")
+
+
+@mcp.tool()
+async def patch_timeline(
+    project_id: Id,
+    base_revision: int,
+    ops: list[TimelineOp],
+    summary: str,
+    author: str = "mcp_agent",
+):
+    """基于指定修订原子应用编辑操作。"""
+    return await request(
+        "POST",
+        f"/{project_id}/timeline/patch",
+        {
+            "base_revision": base_revision,
+            "summary": summary,
+            "author": author,
+            "ops": [op.model_dump() for op in ops],
+        },
+    )
+
+
+@mcp.tool()
+async def undo_timeline(project_id: Id, base_revision: int | None = None):
+    """撤销上次编辑，返回新修订。"""
+    return await request(
+        "POST", f"/{project_id}/timeline/undo", {"base_revision": base_revision}
+    )
+
+
+@mcp.tool()
+async def list_review_pins(project_id: Id):
+    """读取审片时间、框选区域、批注及截图地址。"""
+    return await request("GET", f"/{project_id}/pins")
+
+
+@mcp.tool()
+async def export_timeline(project_id: Id):
+    """等待多轨成片导出并返回校验结果。"""
+    return await request("POST", f"/{project_id}/timeline/export")
 
 
 if __name__ == "__main__":

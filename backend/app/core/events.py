@@ -21,5 +21,9 @@ def subscribe(pid):
 
 async def emit(pid, stage, message, level="info"):
     await repo.log(pid, stage, message, level)
+    notify(pid)
+
+
+def notify(pid):
     for signal in listeners.get(pid, ()):
         signal.set()

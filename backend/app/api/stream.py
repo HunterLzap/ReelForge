@@ -17,7 +17,21 @@ async def stream(pid, request, cursor):
             signal.clear()
             for event in await repo.logs(pid, cursor):
                 cursor = event["id"]
-                yield f"id: {cursor}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+                name = event["stage_name"]
+                named = (
+                    f"event: {name}\n"
+                    if name
+                    in {
+                        "timeline_updated",
+                        "pin_created",
+                        "pin_resolved",
+                        "stage",
+                        "export_done",
+                        "error",
+                    }
+                    else ""
+                )
+                yield f"id: {cursor}\n{named}data: {json.dumps(event, ensure_ascii=False)}\n\n"
             try:
                 await asyncio.wait_for(signal.wait(), 15)
             except TimeoutError:

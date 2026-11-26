@@ -25,6 +25,38 @@ CREATE TABLE IF NOT EXISTS scenes (
 CREATE TABLE IF NOT EXISTS event_logs (
  id INTEGER PRIMARY KEY, project_id TEXT REFERENCES projects(id), level TEXT, stage_name TEXT,
  message TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS timelines (
+ project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE, revision INTEGER NOT NULL,
+ timeline_json TEXT NOT NULL, history_json TEXT NOT NULL, cursor INTEGER NOT NULL,
+ updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS timeline_revisions (
+ id INTEGER PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ revision INTEGER NOT NULL, op_summary TEXT NOT NULL, timeline_json TEXT NOT NULL, author TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(project_id,revision));
+CREATE TABLE IF NOT EXISTS media_assets (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ kind TEXT NOT NULL, filename TEXT NOT NULL, rel_path TEXT NOT NULL, proxy_rel_path TEXT,
+ sha256 TEXT NOT NULL, size_bytes INTEGER NOT NULL, duration_ms INTEGER, width INTEGER, height INTEGER,
+ fps REAL, mime_type TEXT NOT NULL, source_type TEXT NOT NULL, source_url TEXT, license TEXT,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS media_project ON media_assets(project_id);
+CREATE TABLE IF NOT EXISTS transcripts (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ asset_id TEXT REFERENCES media_assets(id) ON DELETE CASCADE, language TEXT, model_used TEXT,
+ segments_json TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS review_pins (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ revision INTEGER NOT NULL, time_ms INTEGER NOT NULL, bbox_json TEXT, track TEXT, clip_id TEXT,
+ note TEXT NOT NULL, frame_rel_path TEXT, status TEXT NOT NULL DEFAULT 'open', resolved_by_revision INTEGER,
+ author TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS pins_project ON review_pins(project_id);
+CREATE TABLE IF NOT EXISTS model_configs (
+ slot TEXT PRIMARY KEY, provider TEXT, model TEXT, base_url TEXT, api_key_env TEXT, enabled INTEGER,
+ extra_json TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS asset_library (
+ id TEXT PRIMARY KEY, root_path TEXT NOT NULL, rel_path TEXT NOT NULL, sha256 TEXT, kind TEXT,
+ duration_ms INTEGER, width INTEGER, height INTEGER, caption TEXT, tags_json TEXT, quality_flags_json TEXT,
+ keyframes_json TEXT, indexed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(root_path,rel_path));
 """
 
 
@@ -63,3 +95,12 @@ async def init():
                 await conn.execute(
                     f"ALTER TABLE projects ADD COLUMN {name} TEXT NOT NULL DEFAULT '{default}'"
                 )
+
+        existing = {col["name"] for col in columns}
+        for name, datatype in (
+            ("skill_id", "TEXT"),
+            ("timeline_revision", "INTEGER"),
+            ("aspect_ratio", "TEXT"),
+        ):
+            if name not in existing:
+                await conn.execute(f"ALTER TABLE projects ADD COLUMN {name} {datatype}")

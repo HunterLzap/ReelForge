@@ -12,11 +12,13 @@ from app.core.events import emit
 from app.db import repository as repo
 from app.db.database import connection
 from app.media.assembler import duration
+from app.media.limits import project_files
 from app.media.renderer import SIZES
 from app.pipeline.orchestrator import folder, read, script_snapshot, snapshot, state
 from app.schemas.project import FormatType, MediaSettings, ProjectCreate
 from app.schemas.research import ResearchPack
 from app.schemas.storyboard import StoryboardScript
+from app.services.storage_manager import guard
 
 router = APIRouter(prefix="/api/projects")
 
@@ -90,6 +92,7 @@ class RenderRequest(BaseModel):
 
 @router.post("/{pid}/render")
 async def render(pid: str, body: RenderRequest | None = None):
+    await asyncio.to_thread(guard)
     body = body or RenderRequest()
     task = await schedule(pid, "rebuild" if body.rebuild_only else "render")
     if not body.wait:
@@ -177,6 +180,8 @@ async def clone(pid: str, body: CloneRequest):
             **{k: original[k] for k in ProjectCreate.model_fields}
             | body.model_dump(exclude_none=True)
         )
+        if body.target_format and body.target_format != original["target_format"]:
+            data.aspect_ratio = None
         created = await repo.create(data)
         dest = created["id"]
         try:
@@ -203,7 +208,7 @@ async def clone(pid: str, body: CloneRequest):
 
 @router.delete("/{pid}")
 async def delete_project(pid: str):
-    async with locks[pid]:
+    async with locks[pid], project_files(pid):
         await idle(pid)
         root = folder(pid)
         if root.is_symlink() or root.resolve().parent != settings().workspace_dir:

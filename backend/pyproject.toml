@@ -6,7 +6,7 @@ build-backend="setuptools.build_meta"
 name="reelforge"
 version="2.0.0"
 requires-python=">=3.11"
-dependencies=["fastapi","uvicorn[standard]","pydantic>=2.8","pydantic-settings","mcp>=1.10,<2","aiosqlite","openai","httpx","duckduckgo-search","trafilatura","typer","jinja2","pillow>=10","python-multipart","playwright","edge-tts","espeakng-loader>=0.2.4","pytest","pytest-asyncio","ruff"]
+dependencies=["fastapi>=0.165","starlette>=1.10","uvicorn[standard]","pydantic>=2.8","pydantic-settings","mcp>=1.10,<2","aiosqlite","openai","httpx","duckduckgo-search","trafilatura","typer","jinja2","pillow>=10","python-multipart","playwright","edge-tts","espeakng-loader>=0.2.4","pytest","pytest-asyncio","ruff"]
 
 [tool.setuptools.packages.find]
 include=["app*"]

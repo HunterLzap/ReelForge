@@ -1,7 +1,7 @@
 import subprocess
 from math import ceil
 
-from app.core.config import ROOT
+from app.core.config import ROOT, settings
 
 
 def command(args, cwd=None):
@@ -86,9 +86,9 @@ def clip(folder):
         "-c:v",
         "libx264",
         "-threads",
-        "3",
+        str(settings().effective_ffmpeg_threads()),
         "-preset",
-        "veryfast",
+        settings().effective_ffmpeg_preset(),
         "-pix_fmt",
         "yuv420p",
         "-c:a",
@@ -180,9 +180,9 @@ def assemble(output, scenes, transition="fade"):
         "-c:v",
         "libx264",
         "-threads",
-        "4",
+        str(settings().effective_ffmpeg_threads()),
         "-preset",
-        "veryfast",
+        settings().effective_ffmpeg_preset(),
         "-pix_fmt",
         "yuv420p",
         "-c:a",
@@ -194,3 +194,62 @@ def assemble(output, scenes, transition="fade"):
         "final.tmp.mp4",
     )
     (output / "final.tmp.mp4").replace(output / "final.mp4")
+
+
+async def export_timeline(doc):
+    """Composite all five layers in Remotion, then master audio and mux for streaming."""
+    import asyncio
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+
+    from app.core.auth import project_dir, resolve_safe_path
+    from app.media.limits import slot
+    from app.media.proxy import probe
+    from app.media.remotion_runner import render_timeline
+    from app.media.worker import run_command
+    from app.services.storage_manager import guard
+
+    await asyncio.to_thread(guard)
+    if not any(doc.tracks.model_dump().values()):
+        raise ValueError("时间轴为空")
+    output = resolve_safe_path(project_dir(doc.project_id), "output")
+    output.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(dir=output, prefix="_tmp-") as directory:
+        tmp = Path(directory)
+        layers = await render_timeline(doc, tmp / "layers.mp4")
+        final = tmp / "final.mp4"
+        async with slot("render"):
+            await run_command(
+                [
+                    "ffmpeg",
+                    "-nostdin",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-i",
+                    layers,
+                    "-map",
+                    "0:v:0",
+                    "-map",
+                    "0:a?",
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "aac",
+                    "-af",
+                    "alimiter=limit=0.97:level=false:latency=true",
+                    "-movflags",
+                    "+faststart",
+                    final,
+                ]
+            )
+            info = await asyncio.to_thread(probe, final)
+            if not info["width"] or info["duration_ms"] <= 0:
+                raise RuntimeError("导出文件没有有效视频流")
+            final.replace(output / "final.mp4")
+    return {
+        **info,
+        "revision": doc.revision,
+        "path": str(output / "final.mp4"),
+        "url": f"/workspace/{doc.project_id}/output/final.mp4",
+    }

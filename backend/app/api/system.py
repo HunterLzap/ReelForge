@@ -1,10 +1,17 @@
+import asyncio
 import shutil
 import sys
 
 from fastapi import APIRouter
 
+from app.api.external import idle
+from app.api.pipeline import locks
+from app.api.projects import get
 from app.core.config import settings
 from app.core.llm_client import cli_args
+from app.db import repository as repo
+from app.media.limits import project_files
+from app.services import storage_manager
 
 router = APIRouter()
 
@@ -35,3 +42,34 @@ def engines():
             }
         },
     }
+
+
+@router.get("/api/system/health")
+def health():
+    return {"status": "ok"}
+
+
+@router.get("/api/system/storage")
+def storage_usage():
+    return storage_manager.storage()
+
+
+@router.post("/api/system/storage/purge")
+async def purge(body: storage_manager.PurgeRequest):
+    projects = (
+        [await get(body.project_id)] if body.project_id else await repo.projects()
+    )
+    freed = 0
+    for project in projects:
+        pid = project["id"]
+        async with locks[pid], project_files(pid):
+            await idle(pid)
+            freed += await asyncio.to_thread(
+                storage_manager.purge_project, pid, body.scope
+            )
+            if body.scope in ("all_cache", "proxies"):
+                await repo.execute(
+                    "UPDATE media_assets SET proxy_rel_path=NULL WHERE project_id=?",
+                    pid,
+                )
+    return {"freed_bytes": freed}

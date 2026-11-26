@@ -1,0 +1,285 @@
+{
+  "id": "motion-editorial",
+  "name": "动态科普",
+  "version": "1.0.0",
+  "description": "使用九类编辑卡片讲解事实、数据和行动步骤。",
+  "supported_aspects": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "3:4"
+  ],
+  "inputs": {
+    "component_id": {
+      "type": "string",
+      "enum": [
+        "cover",
+        "stat",
+        "compare",
+        "steps",
+        "quote",
+        "warning",
+        "code_card",
+        "timeline_card",
+        "image_card"
+      ]
+    },
+    "props": {
+      "type": "object"
+    }
+  },
+  "templates": [
+    {
+      "id": "cover",
+      "name": "封面",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "stat",
+      "name": "关键数字",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "metric": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "delta": {
+            "type": "string"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "bars": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "number"
+                },
+                "accent": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "value"
+              ]
+            }
+          },
+          "takeaway": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "compare",
+      "name": "对照",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string"
+          },
+          "left_title": {
+            "type": "string"
+          },
+          "left_points": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "right_title": {
+            "type": "string"
+          },
+          "right_points": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "steps",
+      "name": "步骤",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "desc": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "step_label": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "quote",
+      "name": "引语",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "quote": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "warning",
+      "name": "提醒",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "code_card",
+      "name": "代码",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "timeline_card",
+      "name": "时间线",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "desc": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "step_label": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "image_card",
+      "name": "图片",
+      "props_schema": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string"
+          },
+          "src": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

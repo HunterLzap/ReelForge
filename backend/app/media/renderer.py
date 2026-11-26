@@ -8,6 +8,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from playwright.async_api import Error, async_playwright
 
 from app.core.config import ROOT, settings
+from app.media.limits import slot
 
 SIZES = {
     "video_16_9": (1920, 1080),
@@ -109,7 +110,7 @@ async def capture_jobs(browser, project, jobs, count):
     async with await browser.new_context(
         viewport={"width": width, "height": height}
     ) as context:
-        limit = asyncio.Semaphore(3)
+        limit = asyncio.Semaphore(settings().effective_browser_concurrency())
 
         async def capture(folder, scene):
             async with limit:
@@ -146,6 +147,13 @@ class PreviewBrowser:
         self.pw = self.browser = None
 
     async def render(self, folder, project, scene, count):
+        async with slot("render"), slot("browser"):
+            if settings().is_cloud_2c2g():
+                await asyncio.to_thread(render, folder, project, scene, count)
+                return
+            await self._preview(folder, project, scene, count)
+
+    async def _preview(self, folder, project, scene, count):
         if os.name == "nt" and isinstance(
             asyncio.get_running_loop(), asyncio.SelectorEventLoop
         ):

@@ -97,7 +97,30 @@ async def test_headless_tools(monkeypatch):
     )
     async with stdio_client(params) as (r, w), ClientSession(r, w) as session:
         await session.initialize()
-        assert len((await session.list_tools()).tools) == 14
+        names = {tool.name for tool in (await session.list_tools()).tools}
+        assert len(names) >= 14
+        assert {
+            "get_storyboard_schema",
+            "create_project",
+            "save_research",
+            "set_storyboard",
+            "update_scene",
+            "add_scene",
+            "delete_scene",
+            "reorder_scenes",
+            "render_project",
+            "rebuild_project",
+            "get_project_status",
+            "attach_image",
+            "clone_project",
+            "cancel_project",
+            "list_skills",
+            "get_timeline",
+            "patch_timeline",
+            "undo_timeline",
+            "list_review_pins",
+            "export_timeline",
+        } <= names
         pid = (
             await invoke(
                 session, "create_project", topic="测试", target_format="cards_3_4"

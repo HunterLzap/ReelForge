@@ -23,7 +23,7 @@ async def execute(sql, *params):
 async def create(data):
     pid = uuid4().hex
     await execute(
-        "INSERT INTO projects(id,topic,target_format,theme,voice,auto_approve,brand_label,transition,execution_mode,seed_materials,seed_only,subtitle_style,speech_rate) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO projects(id,topic,target_format,theme,voice,auto_approve,brand_label,transition,execution_mode,seed_materials,seed_only,subtitle_style,speech_rate,skill_id,aspect_ratio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         pid,
         data.topic,
         data.target_format,
@@ -37,6 +37,8 @@ async def create(data):
         data.seed_only,
         data.subtitle_style,
         data.speech_rate,
+        data.skill_id,
+        data.aspect_ratio,
     )
     return await project(pid)
 
@@ -226,3 +228,17 @@ async def arrange(pid, ids, *, add=None, remove=None):
                 "UPDATE scenes SET render_status=CASE WHEN order_index!=? OR ? THEN 'DIRTY' ELSE render_status END, order_index=? WHERE project_id=? AND id=?",
                 (-index, bool(add or remove), index, pid, sid),
             )
+
+
+async def media_assets(pid):
+    return await rows(
+        "SELECT * FROM media_assets WHERE project_id=? ORDER BY rowid", pid
+    )
+
+
+async def revisions(pid):
+    return await rows(
+        "SELECT revision,op_summary,author,created_at FROM timeline_revisions "
+        "WHERE project_id=? ORDER BY revision DESC",
+        pid,
+    )

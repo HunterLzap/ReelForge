@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.config import settings
+from app.schemas.timeline import Aspect
 
 
 class FormatType(StrEnum):
@@ -39,6 +40,8 @@ class ProjectCreate(MediaSettings):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     topic: str = Field(min_length=1, max_length=240)
     target_format: FormatType = FormatType.landscape
+    skill_id: str | None = None
+    aspect_ratio: Aspect | None = None
     theme: Literal["editorial_dark", "clean_light", "warm_amber"] = "editorial_dark"
     voice: str = Field(default="", max_length=100)
     brand_label: str = Field(default="", max_length=32)
@@ -65,3 +68,4 @@ class Project(ProjectCreate):
     error_message: str | None
     created_at: str
     updated_at: str
+    timeline_revision: int | None = None

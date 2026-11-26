@@ -1,18 +1,162 @@
-export async function request<T>(
+import type {
+  Project,
+  ExportResult,
+  PurgeScope,
+  Skill,
+  TimelineDocument,
+  TimelineOp,
+  Revision,
+  ReviewPin,
+  PinCreate,
+  MediaAsset,
+  StorageInfo,
+  Aspect,
+} from "@/types";
+
+const params = new URL(location.href);
+if (params.searchParams.has("token")) {
+  localStorage.setItem(
+    "reelforge_token",
+    params.searchParams.get("token") || "",
+  );
+  params.searchParams.delete("token");
+  history.replaceState(null, "", params);
+}
+const token = () => localStorage.getItem("reelforge_token");
+export function resourceUrl(path: string) {
+  const url = new URL(path, location.origin);
+  if (
+    url.origin === location.origin &&
+    /^\/(api|workspace)\//.test(url.pathname) &&
+    token()
+  )
+    url.searchParams.set("token", token()!);
+  return url.href;
+}
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    detail: string,
+  ) {
+    super(detail);
+  }
+}
+function failure(status: number, detail?: unknown) {
+  if (status === 401) window.dispatchEvent(new Event("reelforge:auth"));
+  return new ApiError(
+    status,
+    typeof detail === "string"
+      ? detail
+      : status === 507
+        ? "磁盘配额不足，请清理缓存"
+        : "请求失败 (" + status + ")",
+  );
+}
+async function json<T>(
   path: string,
   method = "GET",
-  data?: unknown,
+  body?: unknown,
 ): Promise<T> {
-  const res = await fetch("/api/projects" + path, {
+  const headers = new Headers();
+  if (body !== undefined) headers.set("Content-Type", "application/json");
+  if (token()) headers.set("Authorization", "Bearer " + token());
+  const res = await fetch(path, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : undefined,
-    body: data ? JSON.stringify(data) : undefined,
+    headers,
+    body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(
-      typeof error.detail === "string" ? error.detail : res.statusText,
-    );
-  }
+  if (!res.ok)
+    throw failure(res.status, (await res.json().catch(() => ({}))).detail);
   return res.json();
 }
+function request<T>(path: string, method = "GET", data?: unknown) {
+  return json<T>("/api/projects" + path, method, data);
+}
+export const api = {
+  events: (pid: string) =>
+    new EventSource(resourceUrl("/api/projects/" + pid + "/stream")),
+  projects: () => request<Project[]>(""),
+  project: (pid: string) => request<Project>("/" + pid),
+  create: (
+    topic: string,
+    skill_id: string,
+    aspect_ratio: Aspect,
+    seed_materials: string,
+  ) =>
+    request<Project>("", "POST", {
+      topic,
+      skill_id,
+      aspect_ratio,
+      seed_materials,
+      target_format: aspect_ratio === "9:16" ? "video_9_16" : "video_16_9",
+    }),
+  remove: (pid: string) => request("/" + pid, "DELETE"),
+  skills: () => json<Skill[]>("/api/skills"),
+  timeline: (pid: string) => request<TimelineDocument>("/" + pid + "/timeline"),
+  patch: (
+    pid: string,
+    base_revision: number,
+    ops: TimelineOp[],
+    summary: string,
+  ) =>
+    request<TimelineDocument>("/" + pid + "/timeline/patch", "POST", {
+      base_revision,
+      ops,
+      summary,
+    }),
+  history: (pid: string, direction: "undo" | "redo", base_revision: number) =>
+    request<TimelineDocument>("/" + pid + "/timeline/" + direction, "POST", {
+      base_revision,
+    }),
+  revisions: (pid: string) =>
+    request<Revision[]>("/" + pid + "/timeline/revisions"),
+  export: (pid: string) =>
+    request<ExportResult>("/" + pid + "/timeline/export", "POST"),
+  pins: (pid: string) => request<ReviewPin[]>("/" + pid + "/pins"),
+  pin: (pid: string, data: PinCreate) =>
+    request<ReviewPin>("/" + pid + "/pins", "POST", data),
+  editPin: (
+    pid: string,
+    id: string,
+    data: Partial<Pick<ReviewPin, "note" | "status" | "resolved_by_revision">>,
+  ) => request<ReviewPin>("/" + pid + "/pins/" + id, "PATCH", data),
+  deletePin: (pid: string, id: string) =>
+    request("/" + pid + "/pins/" + id, "DELETE"),
+  frame: (pin: ReviewPin) => resourceUrl(pin.frame_url),
+  media: (pid: string) => request<MediaAsset[]>("/" + pid + "/media"),
+  stream: (id: string) =>
+    resourceUrl(
+      "/api/media/" + encodeURIComponent(id) + "/stream?variant=proxy",
+    ),
+  storage: () => json<StorageInfo>("/api/system/storage"),
+  purge: (project_id?: string, scope: PurgeScope = "temp") =>
+    json<{ freed_bytes: number }>("/api/system/storage/purge", "POST", {
+      project_id,
+      scope,
+    }),
+  upload(
+    pid: string,
+    file: File,
+    progress: (percent: number) => void,
+  ): Promise<MediaAsset> {
+    const data = new FormData();
+    data.append("project_id", pid);
+    data.append("file", file);
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/media/upload");
+      if (token()) xhr.setRequestHeader("Authorization", "Bearer " + token());
+      xhr.responseType = "json";
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable)
+          progress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () =>
+        xhr.status >= 200 && xhr.status < 300
+          ? resolve(xhr.response)
+          : reject(failure(xhr.status, xhr.response?.detail));
+      xhr.onerror = () => reject(new Error("上传连接中断"));
+      xhr.send(data);
+    });
+  },
+};
