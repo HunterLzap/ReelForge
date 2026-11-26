@@ -22,7 +22,22 @@ class Payload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+ImageAsset = Annotated[
+    str, StringConstraints(pattern=r"^[0-9a-f]{64}\.(png|jpg|webp)$")
+]
+
+
+class ImageCard(Payload):
+    heading: Heading
+    caption: Text
+    image_asset: ImageAsset
+    layout: Literal["split", "framed", "backdrop"]
+    tag: Badge
+
+
 class Cover(Payload):
+    cover_style: Literal["arch", "grid", "wave", "minimal"] = "grid"
+    image_asset: ImageAsset | None = None
     title: Heading
     subtitle: Text
     tag: Badge
@@ -88,6 +103,11 @@ class CoverScene(SceneBase):
     visual_payload: Cover
 
 
+class ImageScene(SceneBase):
+    template_type: Literal["image_card"]
+    visual_payload: ImageCard
+
+
 class QuoteScene(SceneBase):
     template_type: Literal["big_quote"]
     visual_payload: Quote
@@ -144,6 +164,7 @@ class ChecklistScene(SceneBase):
 
 SceneItem = Annotated[
     CoverScene
+    | ImageScene
     | QuoteScene
     | BulletScene
     | ChartScene

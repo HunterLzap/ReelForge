@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -13,6 +14,11 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = "https://api.deepseek.com/v1"
     llm_model: str = "deepseek-chat"
+    default_execution_mode: Literal["api", "agent_cli"] = "api"
+    agent_cli_preset: Literal["codex", "claude", "custom"] = "codex"
+    agent_cli_cmd: str = ""
+    agent_cli_timeout: float = Field(180, gt=0)
+    reelforge_api_base: str = "http://127.0.0.1:8000"
     mock_llm: bool = False
     max_search_results_per_query: int = Field(4, ge=1)
     max_fact_check_loops: int = Field(1, ge=0)

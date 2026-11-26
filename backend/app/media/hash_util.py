@@ -4,7 +4,9 @@ import json
 
 def content_hash(project, scene, count=1):
     values = [
-        5,
+        6,
+        project.get("subtitle_style","pill_dark"),
+        project.get("speech_rate","+0%"),
         project["target_format"],
         project["theme"],
         project["voice"],

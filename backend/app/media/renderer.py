@@ -15,6 +15,7 @@ SIZES = {
     "cards_3_4": (1080, 1440),
 }
 SECTIONS = {
+    "image_card": "图像手记",
     "cover": "封面专题",
     "hero_stat": "关键数字",
     "stat_chart": "数据观察",
@@ -68,7 +69,20 @@ def html(project, scene, count, font_data=""):
         }
         for b in bars
     ]
+    image_uri = ""
+    if name := scene["visual_payload"].get("image_asset"):
+        from app.media.assets import asset_path
+
+        data = asset_path(project["id"], name).read_bytes()
+        ext = name.split(".")[-1]
+        image_uri = (
+            "data:image/"
+            + ("jpeg" if ext == "jpg" else ext)
+            + ";base64,"
+            + base64.b64encode(data).decode()
+        )
     return env.get_template(kind + ".html").render(
+        image_uri=image_uri,
         p=scene["visual_payload"],
         target_format=target,
         theme=project["theme"],
@@ -84,7 +98,7 @@ def html(project, scene, count, font_data=""):
     )
 
 
-async def _batch(project, jobs, count):
+async def capture_jobs(browser, project, jobs, count):
     fonts = sorted(
         p
         for p in (ROOT / "assets/fonts").iterdir()
@@ -92,12 +106,9 @@ async def _batch(project, jobs, count):
     )
     font = base64.b64encode(fonts[0].read_bytes()).decode() if fonts else ""
     width, height = SIZES[project["target_format"]]
-    async with async_playwright() as pw:
-        try:
-            browser = await pw.chromium.launch()
-        except Error:
-            browser = await pw.chromium.launch(channel="msedge")
-        context = await browser.new_context(viewport={"width": width, "height": height})
+    async with await browser.new_context(
+        viewport={"width": width, "height": height}
+    ) as context:
         limit = asyncio.Semaphore(3)
 
         async def capture(folder, scene):
@@ -114,10 +125,47 @@ async def _batch(project, jobs, count):
                 finally:
                     await page.close()
 
-        try:
-            await asyncio.gather(*(capture(path, s) for path, s in jobs))
-        finally:
-            await browser.close()
+        await asyncio.gather(*(capture(path, s) for path, s in jobs))
+
+
+async def launch(pw):
+    try:
+        return await pw.chromium.launch()
+    except Error:
+        return await pw.chromium.launch(channel="msedge")
+
+
+async def _batch(project, jobs, count):
+    async with async_playwright() as pw, await launch(pw) as browser:
+        await capture_jobs(browser, project, jobs, count)
+
+
+class PreviewBrowser:
+    def __init__(self):
+        self.lock = asyncio.Lock()
+        self.pw = self.browser = None
+
+    async def render(self, folder, project, scene, count):
+        if os.name == "nt" and isinstance(
+            asyncio.get_running_loop(), asyncio.SelectorEventLoop
+        ):
+            await asyncio.to_thread(render, folder, project, scene, count)
+            return
+        async with self.lock:
+            if self.pw is None:
+                self.pw = await async_playwright().start()
+            if self.browser is None or not self.browser.is_connected():
+                self.browser = await launch(self.pw)
+            browser = self.browser
+        await capture_jobs(browser, project, [(folder, scene)], count)
+
+    async def close(self):
+        if self.pw:
+            await self.pw.stop()
+            self.pw = self.browser = None
+
+
+previews = PreviewBrowser()
 
 
 def render_batch(project, jobs, count):

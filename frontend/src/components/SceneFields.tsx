@@ -1,5 +1,6 @@
 export const names: Record<string, string> = {
   cover: "封面",
+  image_card: "图片卡",
   big_quote: "金句",
   bullet_list: "编号卡片",
   stat_chart: "数据图表",
@@ -12,7 +13,19 @@ type Cell = string | number;
 type Row = Record<string, Cell>;
 export type Payload = Record<string, Cell | (string | Row)[]>;
 const defaults: Record<string, Payload> = {
-  cover: { title: "专题封面", subtitle: "本期重点", tag: "专题" },
+  image_card: {
+    heading: "画面标题",
+    caption: "配图说明",
+    tag: "图记",
+    layout: "split",
+    image_asset: "",
+  },
+  cover: {
+    cover_style: "grid",
+    title: "专题封面",
+    subtitle: "本期重点",
+    tag: "专题",
+  },
   big_quote: {
     quote: "先核实，再决定。",
     highlight: "先核实",
@@ -76,6 +89,7 @@ const labels: Record<string, string> = {
   heading: "标题",
   title: "标题",
   subtitle: "副标题",
+  caption: "图片说明",
   tag: "栏目标签",
   quote: "引文",
   highlight: "高亮词",
@@ -100,16 +114,29 @@ const labels: Record<string, string> = {
   status: "行动类型",
   detail: "具体做法",
 };
-const fieldLimits: Record<string,number> = {
- title:36,heading:36,label:24,left_title:24,right_title:24,attribution:24,highlight:24,
- tag:16,step_label:16,metric:16,unit:16
-}
+const fieldLimits: Record<string, number> = {
+  title: 36,
+  heading: 36,
+  label: 24,
+  left_title: 24,
+  right_title: 24,
+  attribution: 24,
+  highlight: 24,
+  tag: 16,
+  step_label: 16,
+  metric: 16,
+  unit: 16,
+};
 function Field({ k, v, set }: { k: string; v: Cell; set: (v: Cell) => void }) {
   return (
     <label>
       {labels[k] || k}
       {k === "status" ? (
-        <select aria-label={labels[k]} value={v} onChange={(e) => set(e.target.value)}>
+        <select
+          aria-label={labels[k]}
+          value={v}
+          onChange={(e) => set(e.target.value)}
+        >
           <option value="do">建议做</option>
           <option value="dont">避免做</option>
         </select>
@@ -140,6 +167,28 @@ export function SceneFields({
       {Object.keys(defaults[kind]).map((k) => {
         const v = data[k];
         const change = (next: Payload[string]) => set({ ...data, [k]: next });
+        if (k === "image_asset") return null;
+        if (k === "layout" || k === "cover_style") {
+          const options =
+            k === "layout"
+              ? { split: "图文分栏", framed: "装框", backdrop: "背景" }
+              : { grid: "网格", arch: "拱形", wave: "波纹", minimal: "极简" };
+          return (
+            <label key={k}>
+              {k === "layout" ? "配图布局" : "封面样式"}
+              <select
+                value={String(v || "grid")}
+                onChange={(e) => change(e.target.value)}
+              >
+                {Object.entries(options).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          );
+        }
         if (!Array.isArray(v))
           return <Field key={k} k={k} v={v} set={change} />;
         const min =

@@ -16,7 +16,7 @@ RULES = {
     "video_9_16": (
         6,
         8,
-        "35–60 秒。第一句话用痛点或反直觉结果抓人，口语短句，每句至多18字。",
+        "35–60 秒。第一句话用痛点或反直觉结果抓人，口语短句，每句至多24字。",
     ),
     "cards_3_4": (
         6,
@@ -284,11 +284,11 @@ class Director(BaseAgent):
                 ):
                     raise ValueError("来源编号无效")
                 if target_format == "video_9_16" and any(
-                    len(line) > 18
+                    len(line.strip()) > 24
                     for s in script.scenes
-                    for line in re.split(r"[。！？；，、]", s.narration)
+                    for line in re.split(r"[。！？；，、：.!?;,:]", s.narration)
                 ):
-                    raise ValueError("竖屏旁白每句至多18字")
+                    raise ValueError("竖屏旁白每句至多24字")
                 return script
             except (ValidationError, ValueError) as exc:
                 if attempt == settings().max_director_retries:

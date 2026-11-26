@@ -12,7 +12,7 @@ from app.agents.researcher import Researcher
 from app.core.config import settings
 from app.core.events import emit
 from app.db import repository as repo
-from app.media import assembler, renderer, tts
+from app.media import assembler, worker
 from app.media.hash_util import content_hash
 from app.schemas.research import FactCheckReport, ResearchPack
 from app.schemas.storyboard import SceneItem, StoryboardScript
@@ -72,6 +72,9 @@ async def edit(pid, sid, changes):
         for k in ("template_type", "visual_payload", "narration", "source_ids")
     }
     scene = TypeAdapter(SceneItem).validate_python({**data, **changes})
+    from app.media.assets import validate_image
+
+    validate_image(pid, scene.visual_payload)
     if (scene.template_type == "cover") != (row["order_index"] == 1):
         raise ValueError("封面必须且只能位于第一幕")
     if not scene.source_ids or set(scene.source_ids) - {
@@ -101,20 +104,19 @@ async def render_all(project, scenes):
         # A partial write can never match a cache entry after interruption.
         await repo.invalidate(pid, s["id"])
         jobs.append((path, s))
-    await asyncio.to_thread(renderer.render_batch, project, jobs, len(scenes))
+    await worker.run("cards", project, jobs, len(scenes))
     for path, s in jobs:
         digest = content_hash(project, s, len(scenes))
         ms = 0
         if not cards:
-            ms = await tts.narrate(
-                path, s["narration"], project["voice"], project["target_format"]
-            )
-            await asyncio.to_thread(assembler.clip, path)
+            ms = await worker.run("encode", path, s["narration"], project)
         (path / "meta.json").write_text(
             repo.dump({"content_hash": digest, "duration_ms": ms}), encoding="utf-8"
         )
         await repo.rendered(pid, s["id"], digest, ms)
         await emit(pid, "RENDERING", f"第 {s['order_index']} 幕已渲染")
+
+    return {"rendered": len(jobs), "reused": len(scenes) - len(jobs)}
 
 
 def export(project, scenes, sources):
@@ -141,11 +143,43 @@ def export(project, scenes, sources):
         + project["topic"]
         + " · 资料来源\n\n"
         + "\n\n".join(
-            f"- [{s['id']}] {s['title']}\n  <{s['url']}>\n  {s['credibility_note']}"
+            f"- [{s['id']}] {s['title']}\n  {s['url'] or '本地笔记'}\n  {s['credibility_note']}"
             for s in sources
         ),
         encoding="utf-8",
     )
+
+    cover = scenes[0]["visual_payload"]
+    platform = {
+        "video_16_9": "横屏视频",
+        "video_9_16": "竖屏短视频",
+        "cards_3_4": "图文卡片",
+    }[project["target_format"]]
+    headings = [
+        s["visual_payload"].get("heading") or s["narration"].split("。")[0]
+        for s in scenes[1:]
+    ]
+    if platform == "图文卡片":
+        brief = [f"第 {i} 张 · {heading}" for i, heading in enumerate(headings, 2)]
+    elif platform == "竖屏短视频":
+        brief = [scenes[0]["narration"], *headings[:3]]
+    else:
+        brief = [cover["subtitle"], *headings]
+    lines = [
+        f"# {cover['title']}",
+        cover["subtitle"],
+        f"## {platform}简介",
+        *["- " + h for h in (brief or [cover["subtitle"]])],
+        "## 建议话题",
+        f"#{cover['tag']} #{project['topic']} #{platform}",
+        "## 逐幕旁白",
+        *[f"{s['order_index']}. {s['narration']}" for s in scenes],
+        "## 资料来源",
+        *[f"- {s['title']} {s['url'] or ''}" for s in sources],
+    ]
+    temp = out / "publish_kit.tmp"
+    temp.write_text("\n\n".join(lines), encoding="utf-8")
+    temp.replace(out / "publish_kit.md")
 
 
 async def run(pid, action="run"):
@@ -157,6 +191,8 @@ async def run(pid, action="run"):
         ]
     elif action == "rebuild":
         current = "RENDERING"
+    elif current == "CANCELLED":
+        current = "RENDERING" if await repo.scenes(pid) else "PENDING"
     elif current == "FAILED":
         failures = [e for e in await repo.logs(pid) if e["level"] == "error"]
         current = failures[-1]["stage_name"] if failures else "PENDING"
@@ -169,17 +205,19 @@ async def run(pid, action="run"):
             if current == "RESEARCHING":
                 await state(pid, current, "正在采编资料")
                 prior = read(pid, "fact_check") or {}
-                pack = await Researcher().run(
+                pack = await Researcher(p["execution_mode"]).run(
                     pid,
                     p["topic"],
                     prior.get("follow_up_queries") or prior.get("issues", []),
+                    p["seed_materials"],
+                    p["seed_only"],
                 )
                 await repo.save_sources(pid, pack)
                 snapshot(pid, "research", pack.model_dump(mode="json"))
                 current = "FACT_CHECKING"
             await state(pid, current, "正在交叉核查")
             pack = ResearchPack.model_validate(read(pid, "research"))
-            report = await FactChecker().run(pid, pack)
+            report = await FactChecker(p["execution_mode"]).run(pid, pack)
             snapshot(pid, "fact_check", report.model_dump())
             if report.approved:
                 if not p["auto_approve"]:
@@ -195,7 +233,7 @@ async def run(pid, action="run"):
                 raise ValueError("事实核查未通过：" + "；".join(report.issues))
         if current == "DIRECTING":
             await state(pid, current, "正在撰写分镜")
-            script = await Director().run(
+            script = await Director(p["execution_mode"]).run(
                 pid,
                 p["topic"],
                 ResearchPack.model_validate(read(pid, "research")),
@@ -211,13 +249,14 @@ async def run(pid, action="run"):
                     dest = folder(pid) / "previews" / row["id"]
                     dest.mkdir(parents=True, exist_ok=True)
                     jobs.append((dest, row))
-                await asyncio.to_thread(renderer.render_batch, p, jobs, len(rows))
+                await worker.run("cards", p, jobs, len(rows))
                 for dest, row in jobs:
                     (dest / "hash").write_text(content_hash(p, row, len(rows)))
                 await state(pid, "WAITING_STORYBOARD", "等待分镜审批")
                 return
             current = "RENDERING"
         scenes = await repo.scenes(pid)
+        cache = None
         for name in ("RENDERING", "ASSEMBLING"):
             if name == "RENDERING" and current == "ASSEMBLING":
                 continue
@@ -228,17 +267,19 @@ async def run(pid, action="run"):
             start = monotonic()
             try:
                 if name == "RENDERING":
-                    await render_all(p, scenes)
+                    cache = await render_all(p, scenes)
                 else:
-                    await asyncio.to_thread(export, p, scenes, await repo.sources(pid))
-            except Exception as exc:
+                    await worker.run("export", p, scenes, await repo.sources(pid))
+            except (Exception, asyncio.CancelledError) as exc:
                 await repo.stage(
                     pid,
                     name,
                     False,
                     (0, 0),
                     round((monotonic() - start) * 1000),
-                    str(exc),
+                    "任务已中止"
+                    if isinstance(exc, asyncio.CancelledError)
+                    else str(exc),
                 )
                 raise
             await repo.stage(
@@ -250,6 +291,7 @@ async def run(pid, action="run"):
                 f"{len(scenes)} 幕",
             )
         await state(pid, "COMPLETED", "产物已就绪")
+        return cache
     except Exception as exc:
         await repo.status(pid, "FAILED", str(exc))
         await emit(pid, current, str(exc), "error")

@@ -21,7 +21,7 @@ _callback_type = ctypes.CFUNCTYPE(
 )
 
 
-def mock_voice(folder, text):
+def mock_voice(folder, text, speech_rate="+0%"):
 
     engine = ctypes.CDLL(espeakng_loader.get_library_path())
 
@@ -67,7 +67,18 @@ def mock_voice(folder, text):
 
         output.writeframes(pcm)
 
-    ffmpeg(folder, "-i", wav.name, "-ar", "24000", "-ac", "1", "audio.mp3")
+    ffmpeg(
+        folder,
+        "-i",
+        wav.name,
+        "-af",
+        f"atempo={1 + int(speech_rate[:-1]) / 100}",
+        "-ar",
+        "24000",
+        "-ac",
+        "1",
+        "audio.mp3",
+    )
 
     wav.unlink()
 
@@ -137,7 +148,7 @@ def ass_time(ms):
     return stamp(ms).replace(",", ".")[1:-1]
 
 
-def subtitles(folder, cues, fmt):
+def subtitles(folder, cues, fmt, style="pill_dark"):
     import platform
     import unicodedata
 
@@ -186,24 +197,39 @@ def subtitles(folder, cues, fmt):
             + "}"
             + path
         )
+        effect = ""
+        if style == "clean_stroke":
+            lines.pop()
+            effect = r"\bord3.5\3c&H161616&\3a&H00&"
+        elif style == "highlight_bar":
+            lines[-1] = lines[-1].replace("H151515", "H0B9EF5").replace("H44", "H00")
+            effect = r"\1c&H101010&\bord0"
         safe = part.replace("\\", "＼").replace("{", "｛").replace("}", "｝")
         lines.append(
-            "Dialogue: 1," + times + "{" + f"\\pos({width // 2},{y})" + "}" + safe
+            "Dialogue: 1,"
+            + times
+            + "{"
+            + effect
+            + f"\\pos({width // 2},{y})"
+            + "}"
+            + safe
         )
         srt.append(f"{i}\n{stamp(a)} --> {stamp(b)}\n{part}\n")
     (folder / "subs.ass").write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
     (folder / "subs.srt").write_text("\n".join(srt), encoding="utf-8")
 
 
-async def narrate(folder, text, voice, fmt="video_16_9"):
+async def narrate(
+    folder, text, voice, fmt="video_16_9", speech_rate="+0%", subtitle_style="pill_dark"
+):
     events = []
     if settings().mock_llm:
-        await asyncio.to_thread(mock_voice, folder, text)
+        await asyncio.to_thread(mock_voice, folder, text, speech_rate)
     else:
         async with asyncio.timeout(180):
             with (folder / "audio.mp3").open("wb") as out:
                 async for item in edge_tts.Communicate(
-                    text, voice, boundary="WordBoundary"
+                    text, voice, rate=speech_rate, boundary="WordBoundary"
                 ).stream():
                     if item["type"] == "audio":
                         out.write(item["data"])
@@ -215,10 +241,11 @@ async def narrate(folder, text, voice, fmt="video_16_9"):
                                 item["text"],
                             )
                         )
-        if not events:
-            raise ValueError("语音服务未返回字幕时间轴")
     ms = await asyncio.to_thread(duration, folder / "audio.mp3")
     subtitles(
-        folder, timed_lines(text, events, 14 if fmt == "video_9_16" else 20, ms), fmt
+        folder,
+        timed_lines(text, events, 14 if fmt == "video_9_16" else 20, ms),
+        fmt,
+        subtitle_style,
     )
     return ms + 500

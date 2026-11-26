@@ -1,4 +1,3 @@
-import asyncio
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,6 +12,7 @@ from app.api.projects import get
 from app.core.events import emit
 from app.db import repository as repo
 from app.media import renderer, tts
+from app.media.assets import asset_path
 from app.media.hash_util import content_hash
 from app.pipeline.orchestrator import folder, script_snapshot
 from app.schemas.storyboard import SceneItem
@@ -60,6 +60,9 @@ async def arrange(pid, ids, **kwargs):
 @router.post("/{pid}/scenes", status_code=201)
 async def add(pid: str, scene: SceneItem):
     async with editable(pid) as (_, rows):
+        from app.api.external import check_image
+
+        check_image(pid, scene.visual_payload)
         allowed = {s["id"] for s in await repo.sources(pid)}
         if (
             scene.template_type == "cover"
@@ -104,11 +107,16 @@ async def delete(pid: str, sid: str):
 async def preview(pid: str, sid: str, changes: dict | None = None):
     async with editable(pid) as (p, rows):
         scene = draft(find(rows, sid), changes or {})
+        if name := scene["visual_payload"].get("image_asset"):
+            try:
+                asset_path(pid, name)
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from exc
         with tempfile.TemporaryDirectory(
             dir=folder(pid), ignore_cleanup_errors=True
         ) as tmp:
             path = Path(tmp)
-            await asyncio.to_thread(renderer.render, path, p, scene, len(rows))
+            await renderer.previews.render(path, p, scene, len(rows))
             return Response(
                 (path / "card.png").read_bytes(),
                 media_type="image/png",
@@ -128,7 +136,14 @@ async def audition(pid: str, sid: str, body: Speech):
             dir=folder(pid), ignore_cleanup_errors=True
         ) as tmp:
             path = Path(tmp)
-            await tts.narrate(path, body.narration, p["voice"], p["target_format"])
+            await tts.narrate(
+                path,
+                body.narration,
+                p["voice"],
+                p["target_format"],
+                p["speech_rate"],
+                p["subtitle_style"],
+            )
             return Response((path / "audio.mp3").read_bytes(), media_type="audio/mpeg")
 
 
@@ -170,13 +185,17 @@ class SceneWriter(BaseAgent):
 
 @router.post("/{pid}/scenes/{sid}/rewrite")
 async def rewrite(pid: str, sid: str, body: Rewrite):
-    async with editable(pid) as (_, rows):
+    async with editable(pid) as (p, rows):
         row = find(rows, sid)
         scene = {k: row[k] for k in fields}
         if body.narration:
             scene["narration"] = body.narration
         sources = [s for s in await repo.sources(pid) if s["id"] in scene["source_ids"]]
-        return await SceneWriter().run(pid, scene, body.intent, sources)
+        if p["execution_mode"] == "mcp":
+            raise HTTPException(409, "请在外部 Agent 中润色该幕")
+        return await SceneWriter(p["execution_mode"]).run(
+            pid, scene, body.intent, sources
+        )
 
 
 @router.get("/{pid}/scenes/{sid}/thumbnail")
@@ -203,6 +222,6 @@ async def thumbnail(pid: str, sid: str):
             or not (dest / "card.png").is_file()
         ):
             dest.mkdir(parents=True, exist_ok=True)
-            await asyncio.to_thread(renderer.render, dest, p, row, len(rows))
+            await renderer.previews.render(dest, p, row, len(rows))
             marker.write_text(digest)
         return Response((dest / "card.png").read_bytes(), media_type="image/png")

@@ -60,7 +60,7 @@ def clip(folder):
     frames = ceil((duration(folder / "audio.mp3") + 500) * FPS / 1000)
     seconds = frames / FPS
     graph = (
-        f"[0:v]zoompan=z='1+0.026*on/{frames}':x=0:y=0:d={frames}:s={width}x{height}:fps={FPS},"
+        f"[0:v]zoompan=z='1+0.026*on/{frames}':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d={frames}:s={width}x{height}:fps={FPS},"
         f"ass=subs.ass[base];color=c=0xebc588:s={width}x6:r={FPS}[line];"
         f"[base][line]overlay=x='-W+W*t/{seconds}':y=0:shortest=1[v]"
     )
@@ -134,6 +134,13 @@ def assemble(output, scenes, transition="fade"):
     video, audio = "v0", "a0"
     total = frames[0]
     for i, n in enumerate(frames[1:], 1):
+        if transition == "none":
+            filters.append(
+                f"[{video}][{audio}][v{i}][a{i}]concat=n=2:v=1:a=1[mixv{i}][mixa{i}]"
+            )
+            video, audio = f"mixv{i}", f"mixa{i}"
+            total += n
+            continue
         overlap = min(OVERLAP, n // 2, total // 2)
         filters.extend(
             [
@@ -149,10 +156,10 @@ def assemble(output, scenes, transition="fade"):
         if p.suffix.lower() in {".mp3", ".wav", ".m4a", ".flac"}
     )
     if bgm:
-        inputs.extend(["-stream_loop", "-1", "-i", bgm[0]])
+        inputs.extend(["-t", f"{total / FPS:.8f}", "-i", bgm[0]])
         filters.extend(
             [
-                f"[{len(scenes)}:a]volume=0.09,afade=t=in:d=1,afade=t=out:st={max(0, total / FPS - 1.2)}:d=1.2[bed]",
+                f"[{len(scenes)}:a]aresample=48000,aloop=loop=-1:size={total * 48000 // FPS},atrim=end_sample={total * 48000 // FPS},volume=0.09,afade=t=in:d=1,afade=t=out:st={max(0, total / FPS - 1.2)}:d=1.2[bed]",
                 f"[{audio}][bed]amix=inputs=2:duration=first:normalize=0[master]",
             ]
         )

@@ -2,6 +2,7 @@ export type Format = "video_16_9" | "video_9_16" | "cards_3_4";
 export interface Project {
   id: string;
   topic: string;
+  execution_mode: "api" | "agent_cli" | "mcp";
   target_format: Format;
   theme: string;
   voice: string;
@@ -31,8 +32,18 @@ export interface Source {
   credibility_note: string;
 }
 export interface Detail extends Project {
-  research: { outline: string[]; key_facts?:{claim:string;source_ids:string[]}[]; data_points?:{claim:string;source_ids:string[]}[] } | null;
-  fact_check: { approved: boolean; summary: string; issues: string[]; checks?:{claim:string;source:string;verdict:string}[]; follow_up_queries?:string[] } | null;
+  research: {
+    outline: string[];
+    key_facts?: { claim: string; source_ids: string[] }[];
+    data_points?: { claim: string; source_ids: string[] }[];
+  } | null;
+  fact_check: {
+    approved: boolean;
+    summary: string;
+    issues: string[];
+    checks?: { claim: string; source: string; verdict: string }[];
+    follow_up_queries?: string[];
+  } | null;
   scenes: Scene[];
   sources: Source[];
   logs: {
@@ -41,7 +52,12 @@ export interface Detail extends Project {
     message: string;
     created_at: string;
   }[];
-  stage_runs: { stage_name: string; duration_ms: number }[];
+  stage_runs: {
+    stage_name: string;
+    duration_ms: number;
+    status: string;
+    summary: string;
+  }[];
 }
 export const formats: Record<Format, string> = {
   video_16_9: "16:9 横屏视频",
@@ -58,6 +74,7 @@ export const states: Record<string, string> = {
   RENDERING: "渲染中",
   ASSEMBLING: "合成中",
   COMPLETED: "已完成",
+  CANCELLED: "已中止",
   FAILED: "运行失败",
 };
 export type Act = (

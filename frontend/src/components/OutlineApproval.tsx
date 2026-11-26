@@ -19,7 +19,7 @@ export default function OutlineApproval({ p, act }: { p: Detail; act: Act }) {
           ))}
         </div>
       )}
-      {p.status === "WAITING_OUTLINE" && (
+      {p.execution_mode !== "mcp" && p.fact_check && p.status === "WAITING_OUTLINE" && (
         <button className="primary" onClick={() => act("/approve")}>
           通过大纲，生成分镜
         </button>

@@ -1,5 +1,17 @@
+import unicodedata
+
 from app.agents.base import BaseAgent
 from app.schemas.research import FactCheckReport
+
+
+def claim_key(text):
+    return (
+        unicodedata.normalize("NFKC", text)
+        .strip()
+        .rstrip("。.!！？?")
+        .strip()
+        .translate(str.maketrans("、；：", ",;:"))
+    )
 
 
 class FactChecker(BaseAgent):
@@ -23,8 +35,8 @@ class FactChecker(BaseAgent):
             },
         )
         report = FactCheckReport.model_validate(result)
-        if {x.claim for x in pack.key_facts + pack.data_points} - {
-            x.get("claim") for x in report.checks
+        if {claim_key(x.claim) for x in pack.key_facts + pack.data_points} - {
+            claim_key(x.get("claim", "")) for x in report.checks
         }:
             report.approved = False
             report.issues.append("核查记录未覆盖全部关键事实")

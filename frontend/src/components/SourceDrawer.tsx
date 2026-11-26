@@ -19,9 +19,13 @@ export default function SourceDrawer({
               {s.id} · {s.credibility_note}
             </small>
             <h3>
-              <a target="_blank" rel="noreferrer" href={s.url}>
-                {s.title} ↗
-              </a>
+              {s.url ? (
+                <a target="_blank" rel="noreferrer" href={s.url}>
+                  {s.title} ↗
+                </a>
+              ) : (
+                s.title
+              )}
             </h3>
             <p>{s.snippet}</p>
           </article>

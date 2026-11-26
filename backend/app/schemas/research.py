@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, HttpUrl
 class SourceItem(BaseModel):
     id: str
     title: str
-    url: HttpUrl
+    url: HttpUrl | None = None
     snippet: str
     credibility_note: str
 

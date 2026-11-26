@@ -1,3 +1,4 @@
+import asyncio
 from time import monotonic
 
 from app.core.llm_client import LLMClient
@@ -5,8 +6,8 @@ from app.db import repository as repo
 
 
 class BaseAgent:
-    def __init__(self):
-        self.llm = LLMClient()
+    def __init__(self, mode=None):
+        self.llm = LLMClient(mode)
 
     async def run(self, pid, *args):
         start = monotonic()
@@ -14,6 +15,9 @@ class BaseAgent:
         try:
             result = await self.process(*args)
             return result
+        except asyncio.CancelledError:
+            summary = "任务已中止"
+            raise
         except Exception as exc:
             summary = str(exc)
             raise

@@ -115,3 +115,36 @@ def test_word_timing_and_hash():
         ]
     )
     assert digest != content_hash(p, scene, 7)
+
+
+@pytest.mark.parametrize("transition", ["none", "wipeleft", "slideup", "smoothleft"])
+def test_transition_stream_lengths(tmp_path, transition):
+    out = tmp_path / "output"
+    out.mkdir()
+    scenes = []
+    for i, color in enumerate(["red", "blue"]):
+        sid = str(i)
+        root = tmp_path / "scenes" / sid
+        root.mkdir(parents=True)
+        assembler.ffmpeg(
+            root,
+            "-f",
+            "lavfi",
+            "-i",
+            f"color={color}:s=96x64:r=24:d=1",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=48000:cl=stereo",
+            "-t",
+            "1",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "clip.mp4",
+        )
+        scenes.append({"id": sid})
+    assembler.assemble(out, scenes, transition)
+    expected = 2000 if transition == "none" else 1667
+    assert abs(assembler.duration(out / "final.mp4") - expected) < 3

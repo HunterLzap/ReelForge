@@ -31,3 +31,15 @@ p {font-size:.74em;line-height:1.48;margin:.3em 0;color:var(--muted)} small,.lab
 .video_9_16 .vs,.cards_3_4 .vs {grid-column:1;grid-row:2}
 .video_9_16 .front,.cards_3_4 .front {display:flex;flex-direction:column;align-items:stretch}.video_9_16 .engraving,.cards_3_4 .engraving {height:8em}
 .cards_3_4 .sheet {padding:64px 66px 46px;gap:30px}.cards_3_4 article {font-size:49px}.cards_3_4 h1 {font-size:2.5em}.cards_3_4 .compare {grid-template-columns:1fr}
+.cover-photo,.photo-layout img{width:100%;height:8em;object-fit:contain;background:var(--panel)}
+.ornament{height:8em;position:relative;overflow:hidden;color:var(--gold)}
+.ornament i{display:block;position:absolute;border:2px solid currentColor}
+.ornament.grid{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;gap:.12em}
+.ornament.grid i{position:static;border-radius:0 50% 0 0;background:var(--other)}
+.ornament.arch i{inset:calc(var(--i)*.34em);border-radius:50% 50% 0 0}
+.ornament.wave i{width:140%;height:72%;border-radius:50%;top:calc(var(--i)*.45em);left:-20%;transform:rotate(-15deg)}
+.ornament.minimal i{display:none}.ornament.minimal i:first-child{display:block;inset:20%;border-width:0 0 3px;transform:rotate(-35deg)}
+.photo-layout{display:grid;gap:.6em;align-items:center}.photo-layout.split{grid-template-columns:1.35fr 1fr}.photo-layout.framed img{border:.18em solid var(--panel)}
+.photo-layout.backdrop{position:relative;min-height:10em;align-items:end;padding:.6em}.backdrop img{position:absolute;inset:0;height:100%;object-fit:cover}.backdrop div{position:relative;background:var(--paper);padding:.4em;max-width:78%}
+.video_9_16 .photo-layout.split,.cards_3_4 .photo-layout.split{grid-template-columns:1fr}
+.video_9_16 .photo-layout img{height:12em}.cards_3_4 .photo-layout img{height:9em}.photo-layout.backdrop img{height:100%}

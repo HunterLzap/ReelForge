@@ -23,7 +23,7 @@ async def execute(sql, *params):
 async def create(data):
     pid = uuid4().hex
     await execute(
-        "INSERT INTO projects(id,topic,target_format,theme,voice,auto_approve,brand_label,transition) VALUES(?,?,?,?,?,?,?,?)",
+        "INSERT INTO projects(id,topic,target_format,theme,voice,auto_approve,brand_label,transition,execution_mode,seed_materials,seed_only,subtitle_style,speech_rate) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
         pid,
         data.topic,
         data.target_format,
@@ -32,6 +32,11 @@ async def create(data):
         data.auto_approve,
         data.brand_label,
         data.transition,
+        data.execution_mode,
+        data.seed_materials,
+        data.seed_only,
+        data.subtitle_style,
+        data.speech_rate,
     )
     return await project(pid)
 
@@ -43,8 +48,23 @@ async def project(pid):
     return result[0]
 
 
-async def projects():
-    return await rows("SELECT * FROM projects ORDER BY rowid DESC")
+async def projects(q="", target_format=None, status=None):
+    return await rows(
+        "SELECT * FROM projects WHERE instr(lower(topic), lower(?)) > 0 AND (? IS NULL OR target_format=?) AND (? IS NULL OR status=?) ORDER BY rowid DESC",
+        q,
+        target_format,
+        target_format,
+        status,
+        status,
+    )
+
+
+async def delete_project(pid):
+    async with connection() as c:
+        await c.execute("BEGIN IMMEDIATE")
+        for table in ("stage_runs", "sources", "event_logs", "scenes"):
+            await c.execute(f"DELETE FROM {table} WHERE project_id=?", (pid,))
+        await c.execute("DELETE FROM projects WHERE id=?", (pid,))
 
 
 async def status(pid, state, error=None):
@@ -72,7 +92,14 @@ async def save_sources(pid, pack):
         await c.executemany(
             "INSERT INTO sources VALUES(?,?,?,?,?,?)",
             [
-                (s.id, pid, s.title, str(s.url), s.snippet, s.credibility_note)
+                (
+                    s.id,
+                    pid,
+                    s.title,
+                    str(s.url) if s.url else None,
+                    s.snippet,
+                    s.credibility_note,
+                )
                 for s in pack.sources
             ],
         )
