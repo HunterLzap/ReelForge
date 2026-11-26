@@ -52,6 +52,24 @@ export type TimelineOp =
   | { op: "set_export_spec"; export: TimelineDocument["export"] }
   | { op: "set_bgm"; bgm: Music | null }
   | { op: "set_subtitle_style"; subtitle_style: SubtitleStyle };
+export interface ChatEditRequest {
+  message: string;
+  current_time_ms: number;
+  selected_track?: TrackName;
+  selected_clip_id?: string;
+  base_revision: number;
+  history: Turn[];
+}
+export interface EditDiff {
+  summary: string;
+  previous_revision: number;
+  applied_revision: number;
+  ops: { op: string; track?: TrackName | "all"; clip_id?: string }[];
+}
+export interface EditResult extends EditDiff {
+  timeline: TimelineDocument;
+  pin?: ReviewPin;
+}
 export interface PinCreate {
   time_ms: number;
   bbox: Rect | null;

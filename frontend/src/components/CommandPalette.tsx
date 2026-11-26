@@ -52,6 +52,14 @@ export function CommandPalette({
               >
                 打开素材库与联网采集
               </Command.Item>
+              <Command.Item
+                onSelect={action(() => {
+                  s.setRailTab("ai");
+                  s.setStage("edit");
+                })}
+              >
+                AI 改片与批注修复
+              </Command.Item>
               <Command.Item onSelect={action(s.undo)}>撤销编辑</Command.Item>
               <Command.Item onSelect={action(s.redo)}>重做编辑</Command.Item>
               <Command.Item

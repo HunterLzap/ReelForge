@@ -58,7 +58,7 @@ function Edit({
   );
 }
 function PinInspector({ pin: p }: { pin: ReviewPin }) {
-  const { editPin, deletePin, timeline } = useStudio();
+  const { editPin, deletePin, timeline, aiEdit, busy } = useStudio();
   return (
     <>
       <h3>审片批注 · {timecode(p.time_ms)}</h3>
@@ -90,10 +90,21 @@ function PinInspector({ pin: p }: { pin: ReviewPin }) {
           }
         />
       </div>
-      <Button onClick={() => deletePin(p.id)}>
-        <Trash2 />
-        删除批注
-      </Button>
+      <div className="row pin-actions">
+        {p.status === "open" && (
+          <Button
+            variant="primary"
+            disabled={busy}
+            onClick={() => void aiEdit({ pin: p })}
+          >
+            交给 AI 修复
+          </Button>
+        )}
+        <Button onClick={() => deletePin(p.id)}>
+          <Trash2 />
+          删除批注
+        </Button>
+      </div>
     </>
   );
 }

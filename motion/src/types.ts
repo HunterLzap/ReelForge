@@ -104,6 +104,7 @@ export interface TimelineDocument {
   version: "3.0";
   project_id: string;
   revision: number;
+  history_revision?: number | null;
   fps: number;
   aspect_ratio: "16:9" | "9:16" | "1:1" | "3:4";
   resolution: { width: number; height: number };

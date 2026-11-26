@@ -106,6 +106,7 @@ class TimelineDocument(BaseModel):
     version: Literal["3.0"] = "3.0"
     project_id: str
     revision: int = Field(0, ge=0)
+    history_revision: int | None = Field(None, ge=0)
     fps: int = Field(30, gt=0, le=120)
     aspect_ratio: Aspect = "16:9"
     resolution: Resolution

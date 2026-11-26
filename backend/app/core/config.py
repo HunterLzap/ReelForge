@@ -44,11 +44,14 @@ class Settings(BaseSettings):
     disk_limit_gb: float = Field(40, gt=0)
     upload_max_mb: int = Field(2000, gt=0)
     proxy_profile: Literal["auto", "720p_fast", "none"] = "auto"
+    reelforge_probe_ram_gb: float | None = Field(None, gt=0)
     render_concurrency: int = Field(0, ge=0)
     browser_concurrency: int = Field(0, ge=0)
 
     @cached_property
     def detected_memory(self):
+        if self.reelforge_probe_ram_gb is not None:
+            return round(self.reelforge_probe_ram_gb * 1024**3)
         try:
             return os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
         except (AttributeError, OSError, ValueError):

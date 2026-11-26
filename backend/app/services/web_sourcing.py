@@ -21,6 +21,7 @@ from fastapi import HTTPException
 from lxml import html
 from lxml.etree import ParserError
 from PIL import Image, ImageDraw, ImageFont
+from playwright.async_api import Error as BrowserError
 from playwright.async_api import async_playwright
 
 from app.core.auth import project_dir, resolve_safe_path
@@ -548,7 +549,14 @@ async def store_bytes(path, data):
 
 
 async def fetch(
-    pid, url, *, license=None, use_browser=None, media_url=None, target=None
+    pid,
+    url,
+    *,
+    license=None,
+    use_browser=None,
+    media_url=None,
+    target=None,
+    capture_only=False,
 ):
     await engine.get(pid)
     root = project_dir(pid)
@@ -566,7 +574,7 @@ async def fetch(
                 size, digest = await store_bytes(
                     path, preview(hit[1], details["facts"], url)
                 )
-                if hit[0] == "video":
+                if hit[0] == "video" and not capture_only:
                     still = path.with_suffix(".png")
                     path.replace(still)
                     async with slot("render"):
@@ -609,7 +617,16 @@ async def fetch(
                     }.get(mime)
                     if media_ext and not Path(name).suffix:
                         name += media_ext
-                    if mime in {"text/html", "application/xhtml+xml", "text/plain"}:
+                    if capture_only:
+                        if mime not in {"text/html", "application/xhtml+xml"}:
+                            raise HTTPException(422, "网页截图需要 HTML 页面")
+                        _, _, strategy, capture = await browser_document(
+                            final, path.read_bytes(), crawl=False
+                        )
+                        name = "网页截图.png"
+                        details["strategy"] = strategy
+                        size, digest = await store_bytes(path, capture)
+                    elif mime in {"text/html", "application/xhtml+xml", "text/plain"}:
                         details, capture = await extract(
                             final, path.read_bytes(), use_browser
                         )
@@ -641,7 +658,7 @@ async def fetch(
                                 capture
                                 or preview(details["title"], details["facts"], final),
                             )
-                except (httpx.HTTPError, OSError, ValueError) as exc:
+                except (BrowserError, httpx.HTTPError, OSError, ValueError) as exc:
                     raise HTTPException(422, "无法抓取该公开网页或媒体") from exc
             asset = await publish(
                 pid,

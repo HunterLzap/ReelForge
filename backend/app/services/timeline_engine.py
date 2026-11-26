@@ -8,7 +8,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from app.core.auth import project_dir, resolve_safe_path
-from app.core.events import notify
+from app.core.events import notify, record
 from app.db import repository as repo
 from app.db.database import connection
 from app.schemas.timeline import (
@@ -243,10 +243,22 @@ class TimelineEngine:
         return await self._transaction(pid)
 
     async def patch(
-        self, pid, request: TimelinePatchRequest, *, transcript=None, media_record=None
+        self,
+        pid,
+        request: TimelinePatchRequest,
+        *,
+        transcript=None,
+        media_record=None,
+        resolve_pin=None,
     ):
         return await self._transaction(
-            pid, "patch", request.base_revision, request, transcript, media_record
+            pid,
+            "patch",
+            request.base_revision,
+            request,
+            transcript,
+            media_record,
+            resolve_pin,
         )
 
     async def undo(self, pid, base_revision=None):
@@ -263,6 +275,7 @@ class TimelineEngine:
         request=None,
         transcript=None,
         media_record=None,
+        resolve_pin=None,
     ):
         async with connection() as db:
             await db.execute("BEGIN IMMEDIATE")
@@ -283,13 +296,16 @@ class TimelineEngine:
                 else:
                     doc = await migrate(projects[0])
                 history, cursor = [doc.revision], 0
+                doc.history_revision = history[cursor]
                 await self._save(db, doc, history, cursor, "初始化时间轴", "system")
             else:
                 row = rows[0]
                 doc = TimelineDocument.model_validate_json(row["timeline_json"])
                 history, cursor = json.loads(row["history_json"]), row["cursor"]
+                doc.history_revision = history[cursor]
             if base is not None and base != doc.revision:
                 raise RevisionConflict(doc.revision)
+            author = "system"
             if action:
                 revision = doc.revision + 1
                 if action == "patch":
@@ -309,7 +325,24 @@ class TimelineEngine:
                     history = history[: cursor + 1] + [revision]
                     cursor += 1
                     summary, author = request.summary, request.author
+                    if resolve_pin:
+                        updated = await db.execute(
+                            "UPDATE review_pins SET status='resolved',resolved_by_revision=?,resolution_summary=? "
+                            "WHERE project_id=? AND id=? AND status='open' AND note=?",
+                            (revision, summary, pid, resolve_pin.id, resolve_pin.note),
+                        )
+                        if not updated.rowcount:
+                            raise HTTPException(409, "批注已更改，请重新读取")
+                        await record(
+                            db,
+                            pid,
+                            "pin_resolved",
+                            pin_id=resolve_pin.id,
+                            revision=revision,
+                            author=author,
+                        )
                 else:
+                    previous = history[cursor]
                     cursor += -1 if action == "undo" else 1
                     if not 0 <= cursor < len(history):
                         raise HTTPException(409, "没有可撤销或重做的修订")
@@ -319,12 +352,36 @@ class TimelineEngine:
                     )
                     doc = TimelineDocument.model_validate_json(snapshot[0][0])
                     summary, author = action, "user"
+                    undoing = action == "undo"
+                    anchor = previous if undoing else history[cursor]
+                    status, old = (
+                        ("open", "resolved") if undoing else ("resolved", "open")
+                    )
+                    changed = await db.execute_fetchall(
+                        "UPDATE review_pins SET status=? WHERE project_id=? "
+                        "AND resolved_by_revision=? AND status=? RETURNING id",
+                        (status, pid, anchor, old),
+                    )
+                    for pin in changed:
+                        await record(
+                            db,
+                            pid,
+                            "pin_updated" if undoing else "pin_resolved",
+                            pin_id=pin["id"],
+                            revision=revision,
+                            author=author,
+                        )
                 doc.revision = revision
+                doc.history_revision = history[cursor]
                 await self._save(db, doc, history, cursor, summary, author)
             if action or not rows:
-                await db.execute(
-                    "INSERT INTO event_logs(project_id,level,stage_name,message) VALUES(?, 'info', 'timeline_updated', ?)",
-                    (pid, repo.dump({"revision": doc.revision})),
+                await record(
+                    db,
+                    pid,
+                    "timeline_updated",
+                    revision=doc.revision,
+                    author=author,
+                    review_pin_id=request.review_pin_id if request else None,
                 )
             data = doc.model_dump_json()
             # Also repair the materialized file following an interrupted DB commit.

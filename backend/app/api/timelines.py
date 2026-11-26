@@ -9,6 +9,7 @@ from app.db import repository as repo
 from app.media.assembler import export_timeline
 from app.media.limits import project_files
 from app.schemas.timeline import TimelineDocument, TimelinePatchRequest
+from app.services.chat_editor import ChatEdit, EditResult, apply_edit
 from app.services.timeline_engine import RevisionConflict, engine
 
 router = APIRouter(prefix="/api/projects/{pid}")
@@ -18,6 +19,11 @@ async def conflict_handler(request, exc: RevisionConflict):
     return JSONResponse(
         {"detail": "时间轴版本冲突，请重新读取", "current_revision": exc.revision}, 409
     )
+
+
+@router.post("/chat-edit", response_model=EditResult)
+async def chat_edit(pid: str, body: ChatEdit):
+    return await apply_edit(pid, body)
 
 
 @router.get("/timeline")

@@ -1,5 +1,7 @@
 import type {
   Brief,
+  EditResult,
+  ChatEditRequest,
   Shot,
   Turn,
   LibraryItem,
@@ -194,8 +196,21 @@ export const api = {
       ...clip,
       base_revision,
     }),
-  events: (pid: string) =>
-    new EventSource(resourceUrl("/api/projects/" + pid + "/stream")),
+  chatEdit: (pid: string, body: ChatEditRequest) =>
+    request<EditResult>("/" + pid + "/chat-edit", "POST", body),
+  fixPin: (pid: string, id: string, base_revision: number) =>
+    request<EditResult>("/" + pid + "/pins/" + id + "/ai-fix", "POST", {
+      base_revision,
+    }),
+  eventCursor: (pid: string) =>
+    request<{
+      after: number;
+      delivery: { stage_name: string; message: string } | null;
+    }>("/" + pid + "/stream/cursor"),
+  events: (pid: string, after: number) =>
+    new EventSource(
+      resourceUrl("/api/projects/" + pid + "/stream?after=" + after),
+    ),
   projects: () => request<Project[]>(""),
   project: (pid: string) => request<Project>("/" + pid),
   create: (

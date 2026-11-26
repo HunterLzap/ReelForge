@@ -1,6 +1,7 @@
 """ReelForge stdio entry point for local agent clients."""
 
 from typing import Annotated
+from urllib.parse import quote, urlencode
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -11,8 +12,9 @@ from app.core.config import settings
 from app.db.database import init
 from app.main import app
 from app.schemas.research import Evidence, SourceItem
+from app.schemas.review_pin import BBox
 from app.schemas.storyboard import SceneItem, StoryboardScript
-from app.schemas.timeline import TimelineOp
+from app.schemas.timeline import Aspect, TimelineOp, Track
 
 mcp = FastMCP("ReelForge")
 Id = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]
@@ -231,7 +233,8 @@ async def patch_timeline(
     base_revision: int,
     ops: list[TimelineOp],
     summary: str,
-    author: str = "mcp_agent",
+    author: str = "external_mcp",
+    review_pin_id: str | None = None,
 ):
     """基于指定修订原子应用编辑操作。"""
     return await request(
@@ -240,7 +243,8 @@ async def patch_timeline(
         {
             "base_revision": base_revision,
             "summary": summary,
-            "author": author,
+            "author": "external_mcp" if author == "mcp_agent" else author,
+            "review_pin_id": review_pin_id,
             "ops": [op.model_dump() for op in ops],
         },
     )
@@ -264,6 +268,226 @@ async def list_review_pins(project_id: Id):
 async def export_timeline(project_id: Id):
     """等待多轨成片导出并返回校验结果。"""
     return await request("POST", f"/{project_id}/timeline/export")
+
+
+@mcp.tool()
+async def redo_timeline(project_id: Id, base_revision: int | None = None):
+    """重做上次撤销的时间轴编辑。"""
+    return await request(
+        "POST", f"/{project_id}/timeline/redo", {"base_revision": base_revision}
+    )
+
+
+@mcp.tool()
+async def create_review_pin(
+    project_id: Id,
+    time_ms: int,
+    note: str,
+    bbox: BBox | None = None,
+    track: Track | None = None,
+    clip_id: str | None = None,
+    frame_data_url: str | None = None,
+    revision: int | None = None,
+):
+    """在指定时间点保存画框与批注，可提供 PNG 截帧。"""
+    return await request(
+        "POST",
+        f"/{project_id}/pins",
+        {
+            "time_ms": time_ms,
+            "note": note,
+            "bbox": bbox.model_dump() if bbox else None,
+            "track": track,
+            "clip_id": clip_id,
+            "frame_data_url": frame_data_url,
+            "revision": revision,
+            "author": "external_mcp",
+        },
+    )
+
+
+@mcp.tool()
+async def resolve_review_pin(
+    project_id: Id,
+    pin_id: Id,
+    resolved_by_revision: int | None = None,
+    summary: str | None = None,
+):
+    """将批注标为已解决，可以关联修订与处理说明。"""
+    return await request(
+        "PATCH",
+        f"/{project_id}/pins/{pin_id}",
+        {
+            "status": "resolved",
+            "author": "external_mcp",
+            "resolution_summary": summary,
+            "resolved_by_revision": resolved_by_revision,
+        },
+    )
+
+
+@mcp.tool()
+async def ai_fix_pin(project_id: Id, pin_id: Id, base_revision: int | None = None):
+    """按截帧、坐标和批注自动修改时间轴，返回变更摘要。"""
+    return await request(
+        "POST",
+        f"/{project_id}/pins/{pin_id}/ai-fix",
+        {"base_revision": base_revision, "author": "external_mcp"},
+    )
+
+
+@mcp.tool()
+async def index_local_library(path: str = "", aspect: Aspect | None = None):
+    """索引 LIBRARY_ROOT 内的素材目录。"""
+    return await request(
+        "POST", "/library/index", {"path": path, "aspect": aspect}, prefix="/api"
+    )
+
+
+@mcp.tool()
+async def search_media(query: str = "", project_id: Id | None = None):
+    """按名称搜索项目素材；省略工程编号时搜索片库标签、名称和描述。"""
+    if project_id:
+        assets = await request("GET", f"/{project_id}/media")
+        return [
+            item for item in assets if query.casefold() in item["filename"].casefold()
+        ]
+    return await request(
+        "GET", "/library/search?" + urlencode({"q": query}), prefix="/api"
+    )
+
+
+@mcp.tool()
+async def transcribe_media(
+    project_id: Id,
+    asset_id: Id | None = None,
+    base_revision: int | None = None,
+    sync_subtitles: bool = True,
+    hotwords: list[str] | None = None,
+):
+    """转写工程媒体，可同步字幕。"""
+    return await request(
+        "POST",
+        f"/{project_id}/transcribe",
+        {
+            "asset_id": asset_id,
+            "base_revision": base_revision,
+            "sync_subtitles": sync_subtitles,
+            "hotwords": hotwords,
+        },
+    )
+
+
+@mcp.tool()
+async def auto_rough_cut(
+    project_id: Id,
+    apply: bool = False,
+    base_revision: int | None = None,
+    buffer_ms: int = 80,
+    issue_ids: list[str] | None = None,
+):
+    """预览口癖、停顿和重说建议；apply=true 时提交粗剪。"""
+    return await request(
+        "POST",
+        f"/{project_id}/rough-cut",
+        {
+            "apply": apply,
+            "base_revision": base_revision,
+            "buffer_ms": buffer_ms,
+            "issue_ids": issue_ids,
+        },
+    )
+
+
+@mcp.tool()
+async def get_storage_status():
+    """查询工作区容量、缓存明细与配额。"""
+    return await request("GET", "/system/storage", prefix="/api")
+
+
+@mcp.tool()
+async def get_system_capabilities():
+    """探测硬件、工具与当前部署护栏。"""
+    return await request("POST", "/system/probe", prefix="/api")
+
+
+@mcp.tool()
+async def read_skill(skill_id: str):
+    """读取技能指南和组件字段。"""
+    return await request("GET", "/skills/" + quote(skill_id, safe=""), prefix="/api")
+
+
+@mcp.tool()
+async def get_transcript(project_id: Id):
+    """读取当前文稿、逐词时间和粗剪建议。"""
+    return await request("GET", f"/{project_id}/transcript")
+
+
+@mcp.tool()
+async def edit_transcript_cuts(
+    project_id: Id, base_revision: int, delete_word_ids: list[str], buffer_ms: int = 80
+):
+    """根据保留缓冲和删词列表重新剪辑。"""
+    return await request(
+        "POST",
+        f"/{project_id}/rough-cut",
+        {
+            "apply": True,
+            "base_revision": base_revision,
+            "delete_word_ids": delete_word_ids,
+            "buffer_ms": buffer_ms,
+        },
+    )
+
+
+@mcp.tool()
+async def update_subtitles(project_id: Id, base_revision: int, clip_id: str, text: str):
+    """更新一个字幕片段并写入修订历史。"""
+    return await request(
+        "PATCH",
+        f"/{project_id}/timeline",
+        {
+            "base_revision": base_revision,
+            "summary": "更新字幕文字",
+            "author": "external_mcp",
+            "ops": [
+                {
+                    "op": "update_clip",
+                    "track": "subtitle",
+                    "clip_id": clip_id,
+                    "patch": {"text": text},
+                }
+            ],
+        },
+    )
+
+
+@mcp.tool()
+async def search_local_assets(query: str = ""):
+    """搜索本地索引的片库素材。"""
+    return await search_media(query)
+
+
+@mcp.tool()
+async def crawl_web_media(project_id: Id, url: str):
+    """采集指定网页中的媒体并保存来源。"""
+    return await request("POST", f"/{project_id}/sourcing/fetch", {"url": url})
+
+
+@mcp.tool()
+async def capture_webpage_shot(project_id: Id, url: str):
+    """使用浏览器抓取网页画面到项目素材库。"""
+    return await request(
+        "POST", f"/{project_id}/sourcing/fetch", {"url": url, "capture_only": True}
+    )
+
+
+@mcp.tool()
+async def attach_asset(project_id: Id, item_id: str):
+    """将片库索引中的素材导入项目。"""
+    return await request(
+        "POST", f"/{project_id}/library/{quote(item_id, safe='')}/import"
+    )
 
 
 if __name__ == "__main__":

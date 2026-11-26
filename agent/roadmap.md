@@ -14,8 +14,8 @@
 | **v3.0 架构与文档拆解** | ✅ 已定稿 | 模块化 `agent/` 6 文档体系 + `cloud_2c2g` 约束收敛 | `fd60ee4` |
 | **Milestone 1（M1）** | ✅ 已验收 | 多轨底座 + Remotion 动态内核 + 方案 A 前端 + `ReviewPin` + 2C2G 存储与流式护栏（51 pytest 全绿、1080p 真片导出与 1440×900 视觉通过） | `04a466d` |
 | **Milestone 2（M2）** | ✅ 已验收 | 硬件探测与 Magpie 模型中心 + 2C2G 大模型硬阻断 + 三段式智能粗剪 / 删词剪辑 / 3000 行 60fps 虚拟字幕 + Screen Studio 放大标注与 3 画幅真片导出（63 pytest 全绿） | `ffa873e` |
-| **Milestone 3（M3）** | ✅ 已验收 | 6 通道 `ModelRouter` + 沙盒本地片库索引与质量标记 + `Crawl4AI`/HTTP 双策略联网采集与 `Cmd+V` 贴图 + AI 导演对话 4 态兜底 + `ai-news-montage` Skill（81 pytest 全绿） | M3 提交 |
-| **Milestone 4（M4）** | 🚧 进行中 | 内置助手与外部 MCP 按 `ReviewPin` 精准改片闭环 + 3 套 Skill 压测 | — |
+| **Milestone 3（M3）** | ✅ 已验收 | 6 通道 `ModelRouter` + 沙盒本地片库索引与质量标记 + `Crawl4AI`/HTTP 双策略联网采集与 `Cmd+V` 贴图 + AI 导演对话 4 态兜底 + `ai-news-montage` Skill（81 pytest 全绿） | `d0482e6` |
+| **Milestone 4（M4）** | ✅ 已验收 | `ReviewPin` AI 修复与 Undo/Redo 对称 + 全量 38 MCP 工具 stdio/SSE 闭环 + `AiChatPane` + 3 Skill × 3 画幅 9 组合真片导出 + 2C2G 安全与配额压测（94 pytest 全绿 & 1440×900 视觉通过） | M4 提交 |
 
 ```mermaid
 flowchart LR

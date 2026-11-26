@@ -1,3 +1,4 @@
+import { AiChatPane } from "./AiChatPane";
 import { TranscriptPane } from "./TranscriptPane";
 import { MaterialDrawer } from "./MaterialDrawer";
 import { Check, RotateCcw, Trash2 } from "lucide-react";
@@ -25,6 +26,7 @@ export function LeftRail({ jump }: { jump: (ms: number) => void }) {
           ["media", "素材"],
           ["transcript", "文稿"],
           ["pins", "图钉"],
+          ["ai", "AI 改片"],
         ].map(([id, label]) => (
           <TabsTrigger value={id} key={id}>
             {label}
@@ -67,6 +69,9 @@ export function LeftRail({ jump }: { jump: (ms: number) => void }) {
       </TabsContent>
       <TabsContent value="transcript">
         <TranscriptPane jump={jump} />
+      </TabsContent>
+      <TabsContent value="ai">
+        <AiChatPane jump={jump} />
       </TabsContent>
       <TabsContent value="pins">
         {!pins.length && <p className="empty">按 M 在画面上框选并添加批注。</p>}

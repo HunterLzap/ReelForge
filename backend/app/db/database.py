@@ -105,6 +105,10 @@ async def init():
             if name not in existing:
                 await conn.execute(f"ALTER TABLE projects ADD COLUMN {name} {datatype}")
 
+        pin_columns = await conn.execute_fetchall("PRAGMA table_info(review_pins)")
+        if "resolution_summary" not in {c["name"] for c in pin_columns}:
+            await conn.execute("ALTER TABLE review_pins ADD COLUMN resolution_summary TEXT")
+
         library = {
             c["name"]
             for c in await conn.execute_fetchall("PRAGMA table_info(asset_library)")

@@ -1641,3 +1641,32 @@ progress {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.rail > .tab-list {
+  overflow-x: auto;
+}
+.ai-pin, .ai-diff {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.ai-pin-note {
+  text-align: left;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ai-pin time { color: var(--ink-muted); }
+.ai-diff p { margin: 0; }
+.ai-diff strong { font-variant-numeric: tabular-nums; }
+.ai-badges, .pin-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.ai-badges span {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-control);
+  font-size: 11px;
+}

@@ -51,10 +51,13 @@ class ReviewPin(PinFields):
     frame_url: str
     status: Status
     resolved_by_revision: int | None
+    resolution_summary: str | None = None
     created_at: str
 
 
 class PinUpdate(BaseModel):
+    resolution_summary: str | None = Field(None, max_length=2000)
+    author: str = "user"
     status: Status | None = None
     note: str | None = Field(None, min_length=1, max_length=8000)
     resolved_by_revision: int | None = Field(None, ge=0)

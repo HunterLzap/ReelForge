@@ -24,6 +24,7 @@ async def stream(pid, request, cursor):
                     in {
                         "timeline_updated",
                         "pin_created",
+                        "pin_updated",
                         "pin_resolved",
                         "stage",
                         "export_done",
@@ -36,6 +37,22 @@ async def stream(pid, request, cursor):
                 await asyncio.wait_for(signal.wait(), 15)
             except TimeoutError:
                 yield ": heartbeat\n\n"
+
+
+@router.get("/{pid}/stream/cursor")
+async def cursor(pid: str):
+    await get(pid)
+    row = await repo.rows(
+        "SELECT MAX(id) AS id FROM event_logs WHERE project_id=?", pid
+    )
+    after = row[0]["id"] or 0
+    delivery = await repo.rows(
+        "SELECT stage_name,message FROM event_logs WHERE project_id=? AND id<=? "
+        "AND stage_name IN ('stage','export_done','error') ORDER BY id DESC LIMIT 1",
+        pid,
+        after,
+    )
+    return {"after": after, "delivery": delivery[0] if delivery else None}
 
 
 @router.get("/{pid}/stream")

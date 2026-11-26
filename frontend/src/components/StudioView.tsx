@@ -23,6 +23,8 @@ export function StudioView({
     project,
     timeline,
     stage,
+    selection,
+    pins,
     setStage,
     close,
     refreshHome,
@@ -30,6 +32,11 @@ export function StudioView({
     redo,
     busy,
   } = useStudio();
+  const inspectingOpenPin =
+    stage === "edit" &&
+    selection &&
+    "pin" in selection &&
+    pins.some((pin) => pin.id === selection.pin && pin.status === "open");
   useShortcut("mod+z", () => void undo(), shortcuts && !busy);
   useShortcut("mod+shift+z", () => void redo(), shortcuts && !busy);
   return (
@@ -78,7 +85,9 @@ export function StudioView({
           <StoragePill />
           <CommandButton open={palette} />
           <Button
-            variant={stage === "plan" ? "default" : "primary"}
+            variant={
+              stage === "plan" || inspectingOpenPin ? "default" : "primary"
+            }
             onClick={() => setStage("delivery")}
           >
             <Download />

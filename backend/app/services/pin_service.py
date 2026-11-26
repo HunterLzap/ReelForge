@@ -10,8 +10,9 @@ from fastapi import HTTPException
 from PIL import Image
 
 from app.core.auth import project_dir, resolve_safe_path
-from app.core.events import emit
+from app.core.events import emit, notify, record
 from app.db import repository as repo
+from app.db.database import connection
 from app.media.remotion_runner import render_timeline
 from app.schemas.review_pin import ReviewPin
 from app.schemas.timeline import TimelineDocument
@@ -112,20 +113,47 @@ async def create(pid, body):
 
 
 async def update(pid, pin_id, body):
-    current = await lookup(pid, pin_id)
-    values = body.model_dump(exclude_unset=True)
+    values = body.model_dump(exclude_unset=True, exclude={"author"})
     if any(values.get(key) is None for key in ("note", "status") if key in values):
         raise HTTPException(422, "状态与批注文字不能为空")
-    if values.get("status") == "open":
-        values["resolved_by_revision"] = None
-    if values:
-        assignments = ", ".join(f"{key}=?" for key in values)
-        await repo.execute(
-            f"UPDATE review_pins SET {assignments} WHERE project_id=? AND id=?",
-            *values.values(),
-            pid,
-            pin_id,
+    async with connection() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        rows = await db.execute_fetchall(
+            "SELECT * FROM review_pins WHERE project_id=? AND id=?", (pid, pin_id)
         )
-    if current.status != "resolved" and values.get("status") == "resolved":
-        await emit(pid, "pin_resolved", pin_id)
-    return await lookup(pid, pin_id)
+        if not rows:
+            raise HTTPException(404, "批注不存在")
+        if values.get("status") in {"open", "dismissed"}:
+            values["resolved_by_revision"] = None
+            values["resolution_summary"] = None
+        elif (
+            values.get("resolved_by_revision") is not None
+            or values.get("status") == "resolved"
+        ):
+            timeline = (
+                await db.execute_fetchall(
+                    "SELECT * FROM timelines WHERE project_id=?", (pid,)
+                )
+            )[0]
+            revision = values.get("resolved_by_revision")
+            history = json.loads(timeline["history_json"])
+            cursor = timeline["cursor"]
+            if revision is None or revision == timeline["revision"]:
+                revision = history[cursor]
+            if revision not in history[: cursor + 1]:
+                raise HTTPException(409, "该修订不在当前时间轴历史中")
+            values["resolved_by_revision"] = revision
+        if values:
+            assignments = ", ".join(f"{key}=?" for key in values)
+            updated = await db.execute_fetchall(
+                f"UPDATE review_pins SET {assignments} WHERE project_id=? AND id=? RETURNING *",
+                (*values.values(), pid, pin_id),
+            )
+            event = (
+                "pin_resolved" if values.get("status") == "resolved" else "pin_updated"
+            )
+            await record(db, pid, event, pin_id=pin_id, author=body.author)
+            rows = updated
+    if values:
+        notify(pid)
+    return serialize(dict(rows[0]))

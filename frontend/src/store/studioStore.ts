@@ -5,6 +5,7 @@ import { optimistic } from "./optimistic";
 import type {
   TimelineDocument,
   TimelineOp,
+  EditDiff,
   Shot,
   Turn,
   Brief,
@@ -59,6 +60,11 @@ interface Studio {
   select: (s: Selection) => void;
   setStage: (s: Stage) => void;
   patchTimeline: (ops: TimelineOp[], summary: string) => Promise<boolean>;
+  aiEdits: (EditDiff & { message: string })[];
+  aiEdit: (
+    input: { pin: ReviewPin } | { message: string; timeMs: number },
+  ) => Promise<boolean>;
+  undoAi: (revision: number) => Promise<boolean>;
   undo: () => Promise<boolean>;
   redo: () => Promise<boolean>;
   addPin: (data: PinCreate) => Promise<ReviewPin | undefined>;
@@ -93,30 +99,55 @@ export const useStudio = create<Studio>((set, get) => {
       pins = await api.pins(pid);
     if (active(n) && order === pinRequest) set({ pins });
   }
-  function connect(pid: string, n: number) {
-    stream = api.events(pid);
-    stream.addEventListener("timeline_updated", (e) => {
-      if (!active(n)) return;
-      seenRevision = Math.max(
-        seenRevision,
-        JSON.parse(JSON.parse(e.data).message).revision,
-      );
-      if (!get().busy && seenRevision > (get().timeline?.revision ?? -1))
-        void refreshTimeline(pid, n).catch(report);
-    });
-    for (const name of ["pin_created", "pin_resolved"])
-      stream.addEventListener(name, () => {
-        if (active(n)) void refreshPins(pid, n).catch(report);
+  function receiveDelivery(name: string, message: string) {
+    if (name === "error") set({ delivery: { status: "error", message } });
+    else if (name === "export_done")
+      set({ delivery: { status: "done", result: JSON.parse(message) } });
+    else if (JSON.parse(message).stage === "render")
+      set({ delivery: { status: "rendering" } });
+  }
+  function connect(pid: string, n: number, after: number) {
+    stream = api.events(pid, after);
+    let refreshing = false,
+      pending = false;
+    async function sync() {
+      pending = true;
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        while (pending && active(n)) {
+          pending = false;
+          await Promise.all([refreshTimeline(pid, n), refreshPins(pid, n)]);
+        }
+      } finally {
+        refreshing = false;
+      }
+    }
+    for (const name of [
+      "timeline_updated",
+      "pin_created",
+      "pin_resolved",
+      "pin_updated",
+    ])
+      stream.addEventListener(name, (e) => {
+        if (!active(n)) return;
+        const message = JSON.parse(e.data).message;
+        // Older Pin events carry a bare ID.
+        const detail = message.startsWith("{") ? JSON.parse(message) : {};
+        if (name === "timeline_updated")
+          seenRevision = Math.max(seenRevision, detail.revision);
+        if (detail.author === "external_mcp")
+          toast.info(
+            name === "pin_resolved"
+              ? "外部 MCP 已解决批注"
+              : "外部 MCP 已更新时间轴",
+          );
+        void sync().catch(report);
       });
     for (const name of ["stage", "export_done", "error"])
       stream.addEventListener(name, (e) => {
         if (!active(n) || !(e instanceof MessageEvent)) return;
-        const message = JSON.parse(e.data).message;
-        if (name === "error") set({ delivery: { status: "error", message } });
-        else if (name === "export_done")
-          set({ delivery: { status: "done", result: JSON.parse(message) } });
-        else if (JSON.parse(message).stage === "render")
-          set({ delivery: { status: "rendering" } });
+        receiveDelivery(name, JSON.parse(e.data).message);
       });
   }
   async function change(
@@ -141,7 +172,10 @@ export const useStudio = create<Studio>((set, get) => {
         direction === "patch"
           ? await api.patch(pid, before.revision, ops, summary)
           : await api.history(pid, direction, before.revision);
-      if (active(n)) set({ timeline: doc });
+      if (active(n)) {
+        set({ timeline: doc });
+        if (direction !== "patch") await refreshPins(pid, n).catch(report);
+      }
       return active(n);
     } catch (error) {
       if (active(n)) {
@@ -173,6 +207,67 @@ export const useStudio = create<Studio>((set, get) => {
   }
   return {
     draft: null,
+    aiEdits: [],
+    async aiEdit(input) {
+      const { timeline: doc, busy, selection, aiEdits } = get();
+      if (!doc || busy) return false;
+      const n = session,
+        pid = doc.project_id;
+      set({ busy: true });
+      try {
+        const result =
+          "pin" in input
+            ? await api.fixPin(pid, input.pin.id, doc.revision)
+            : await api.chatEdit(pid, {
+                message: input.message,
+                current_time_ms: input.timeMs,
+                base_revision: doc.revision,
+                selected_clip_id:
+                  selection && "id" in selection ? selection.id : undefined,
+                selected_track:
+                  selection && "track" in selection
+                    ? selection.track
+                    : undefined,
+                history: aiEdits.slice(-10).flatMap((edit): Turn[] => [
+                  { role: "user", content: edit.message.slice(0, 6000) },
+                  { role: "assistant", content: edit.summary },
+                ]),
+              });
+        if (!active(n)) return false;
+        const { timeline, pin, ...diff } = result;
+        ++pinRequest;
+        set({
+          timeline,
+          railTab: "ai",
+          aiEdits: [
+            ...aiEdits,
+            {
+              ...diff,
+              message: "pin" in input ? input.pin.note : input.message,
+            },
+          ],
+          ...(pin && {
+            pins: get().pins.map((p) => (p.id === pin.id ? pin : p)),
+          }),
+        });
+        return true;
+      } catch (error) {
+        if (active(n)) report(error);
+        return false;
+      } finally {
+        if (active(n)) {
+          set({ busy: false });
+          void Promise.all([
+            refreshTimeline(pid, n),
+            refreshPins(pid, n),
+          ]).catch(report);
+        }
+      }
+    },
+    undoAi: async (revision) => {
+      if (get().timeline?.history_revision !== revision) return false;
+      return change("undo");
+    },
     railTab: "shots",
     setRailTab: (railTab) => set({ railTab }),
     setDraft: (pid, draft) => {
@@ -223,6 +318,7 @@ export const useStudio = create<Studio>((set, get) => {
         pid = project.id;
       set({ project });
       try {
+        const { after, delivery } = await api.eventCursor(pid);
         const [timeline, media, pins] = await Promise.all([
           api.timeline(pid),
           api.media(pid),
@@ -230,7 +326,8 @@ export const useStudio = create<Studio>((set, get) => {
         ]);
         if (!active(n)) return;
         set({ timeline, media, pins });
-        connect(pid, n);
+        if (delivery) receiveDelivery(delivery.stage_name, delivery.message);
+        connect(pid, n, after);
         const url = new URL(location.href);
         url.searchParams.set("project", pid);
         history.replaceState(null, "", url);
@@ -246,6 +343,7 @@ export const useStudio = create<Studio>((set, get) => {
       stream?.close();
       seenRevision = -1;
       set({
+        aiEdits: [],
         draft: null,
         railTab: "shots",
         project: null,

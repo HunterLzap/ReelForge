@@ -19,6 +19,7 @@ class Search(BaseModel):
 
 
 class Fetch(BaseModel):
+    capture_only: bool = False
     url: HttpUrl
     media_url: HttpUrl | None = None
     license: str | None = None
